@@ -12,7 +12,8 @@
 	"activationEvents": [
         "onCommand:call-graph-maker.trackCurrentFunction",
         "onCommand:call-graph-maker.clearTrackedFunctions",
-        "onCommand:call-graph-maker.showTrackedFunctions"
+        "onCommand:call-graph-maker.showTrackedFunctions",
+		"onCommand:call-graph-maker.gotoLocalDefinition"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -28,6 +29,10 @@
 			{
 				"command": "call-graph-maker.showTrackedFunctions",
 				"title": "Show tracked function"
+			},
+			{
+				"command": "call-graph-maker.gotoLocalDefinition",
+				"title": "Go to Definition in this function"
 			}
 		],
 		"keybindings": [
@@ -55,6 +60,10 @@
 				{
 					"command": "call-graph-maker.clearTrackedFunctions",
 					"group": "call-graph-maker@3"
+				},
+				{
+					"command": "call-graph-maker.gotoLocalDefinition",
+					"group": "navigation@1"
 				}
 			]
 		}
