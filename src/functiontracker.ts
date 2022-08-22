@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { CallGraphNode, SortContext } from './callgraphnode';
 
 // In order that they're added to tracking.
-let trackedFunctions: Array<CallGraphNode> = [];
+export let TRACKED_FUNCTIONS: Array<CallGraphNode> = [];
 
 export async function trackCurrentFunction() {
 	let fn = await getCurrentFunction();
@@ -13,7 +13,7 @@ export async function trackCurrentFunction() {
 		return;
 	}
 
-	if (trackedFunctions.find((existing) => existing.fn.name == fn!!.name)) {
+	if (TRACKED_FUNCTIONS.find((existing) => existing.fn.name == fn!!.name)) {
 		return;
 	}
 
@@ -28,11 +28,12 @@ export async function trackCurrentFunction() {
 
     const content = editor.document.getText(fn.location.range);
     const identifier = fn.name.split("(")[0];
+	// BUG: identifier sometimes is not the right identifier if macros are used to define function.
 	let newNode = new CallGraphNode(fn, { content, identifier, });
 
     // https://stackoverflow.com/questions/7347203/circular-references-in-javascript-garbage-collector
     // don't worry about cycles
-	for (let n of trackedFunctions) {
+	for (let n of TRACKED_FUNCTIONS) {
 		if (n.content.includes(newNode.identifier)) {
             n.outgoingCalls.push(newNode);
             newNode.incomingCalls.push(n);
@@ -44,11 +45,11 @@ export async function trackCurrentFunction() {
         }
 	}
 
-	trackedFunctions.push(newNode);
+	TRACKED_FUNCTIONS.push(newNode);
 }
 
 export async function clearTrackedFunctions() {
-	trackedFunctions = [];
+	TRACKED_FUNCTIONS = [];
 }
 
 export async function getCurrentFunction(): Promise<vscode.SymbolInformation | null> {
@@ -91,7 +92,7 @@ export async function getCurrentFunction(): Promise<vscode.SymbolInformation | n
 
 export async function showTrackedFunctions() {
     let sortContext = new SortContext();
-	sortContext.start(trackedFunctions);
+	sortContext.start(TRACKED_FUNCTIONS);
 
 	let content = "";
 

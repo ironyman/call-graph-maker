@@ -1,5 +1,5 @@
 {
-  "name": "call-graph-maker",
+	"name": "call-graph-maker",
 	"displayName": "call-graph-maker",
 	"description": "Tool to make call graphs",
 	"version": "0.0.1",
@@ -10,33 +10,46 @@
 		"Other"
 	],
 	"activationEvents": [
-        "onCommand:call-graph-maker.trackCurrentFunction",
-        "onCommand:call-graph-maker.clearTrackedFunctions",
-        "onCommand:call-graph-maker.showTrackedFunctions",
-		"onCommand:call-graph-maker.gotoLocalDefinition"
+		"onCommand:call-graph-maker.trackCurrentFunction",
+		"onCommand:call-graph-maker.clearTrackedFunctions",
+		"onCommand:call-graph-maker.showTrackedFunctions",
+		"onCommand:call-graph-maker.gotoLocalDefinition",
+		"onView:callGraphMakerView"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
-		"commands": [
-			{
+		"views": {
+			"explorer": [{
+				"id": "callGraphMakerView",
+				"name": "Call Graph Maker View"
+			}]
+		},
+		"commands": [{
 				"command": "call-graph-maker.trackCurrentFunction",
-				"title": "Track current function"
+				"title": "Track current function",
+				"icon": "$(diff-insert)"
 			},
 			{
 				"command": "call-graph-maker.clearTrackedFunctions",
-				"title": "Clear tracked function"
+				"title": "Clear tracked function",
+				"icon": "$(extensions-clear-search-results)"
 			},
 			{
 				"command": "call-graph-maker.showTrackedFunctions",
-				"title": "Show tracked function"
+				"title": "Show tracked function",
+				"icon": "$(find-selection)"
 			},
 			{
 				"command": "call-graph-maker.gotoLocalDefinition",
 				"title": "Go to Definition in this function"
+			},
+			{
+				"command": "call-graph-maker.refreshCallGraphMakerView",
+				"title": "Refresh",
+				"icon": "$(refresh)"
 			}
 		],
-		"keybindings": [
-			{
+		"keybindings": [{
 				"command": "call-graph-maker.trackCurrentFunction",
 				"key": "ctrl+y t",
 				"mac": "cmd+y t"
@@ -48,8 +61,29 @@
 			}
 		],
 		"menus": {
-			"editor/context": [
+			"view/title": [
 				{
+					"command": "call-graph-maker.refreshCallGraphMakerView",
+					"when": "view == callGraphMakerView",
+					"group": "navigation"
+				},
+				{
+					"command": "call-graph-maker.showTrackedFunctions",
+					"when": "view == callGraphMakerView",
+					"group": "navigation"
+				},
+				{
+					"command": "call-graph-maker.clearTrackedFunctions",
+					"when": "view == callGraphMakerView",
+					"group": "navigation"
+				},
+				{
+					"command": "call-graph-maker.trackCurrentFunction",
+					"when": "view == callGraphMakerView",
+					"group": "navigation"
+				}
+			],
+			"editor/context": [{
 					"command": "call-graph-maker.trackCurrentFunction",
 					"group": "call-graph-maker@1"
 				},
