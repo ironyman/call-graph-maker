@@ -18,11 +18,26 @@
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"viewsWelcome": [
+			{
+			  "view": "callGraphMakerViewPanel",
+			  "contents": "Go on add something [learn more](https://www.npmjs.com/).\n[Track function](command:call-graph-maker.trackCurrentFunction)"
+			}
+		],
 		"views": {
 			"explorer": [{
 				"id": "callGraphMakerView",
 				"name": "Call Graph Maker View"
-			}]
+			}],
+			"callGraphMakerPanel": [
+				{
+				  "id": "callGraphMakerViewPanel",
+				  "name": "Call Graph Maker Panel",
+				  "icon": "$(list-unordered)",
+				  "contextualTitle": "Call Graph Maker Panel Explorer",
+				  "visibility": "visible"
+				}
+			]
 		},
 		"commands": [{
 				"command": "call-graph-maker.trackCurrentFunction",
@@ -64,22 +79,22 @@
 			"view/title": [
 				{
 					"command": "call-graph-maker.refreshCallGraphMakerView",
-					"when": "view == callGraphMakerView",
+					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation"
 				},
 				{
 					"command": "call-graph-maker.showTrackedFunctions",
-					"when": "view == callGraphMakerView",
+					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation"
 				},
 				{
 					"command": "call-graph-maker.clearTrackedFunctions",
-					"when": "view == callGraphMakerView",
+					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation"
 				},
 				{
 					"command": "call-graph-maker.trackCurrentFunction",
-					"when": "view == callGraphMakerView",
+					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation"
 				}
 			],
@@ -98,6 +113,15 @@
 				{
 					"command": "call-graph-maker.gotoLocalDefinition",
 					"group": "navigation@1"
+				}
+			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+				  "id": "callGraphMakerPanel",
+				  "title": "Call Graph Maker",
+				  "icon": "$(list-tree)"
 				}
 			]
 		}

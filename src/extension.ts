@@ -15,8 +15,13 @@ export function activate(context: vscode.ExtensionContext) {
 		'callGraphMakerView',
 		treeDataProvider
 	);
+	
+	vscode.window.registerTreeDataProvider(
+		'callGraphMakerViewPanel',
+		treeDataProvider
+	);
 
-	// vscode.window.createTreeView('nodeDependencies', {
+	// vscode.window.createTreeView('callGraphMakerView', {
 	// 	treeDataProvider: new CallGraphTreeDataProvider()
 	// });
 

@@ -4,7 +4,7 @@ import { CallGraphNode, SortContext } from './callgraphnode';
 
 // https://github.com/microsoft/vscode-extension-samples/tree/main/tree-view-sample
 export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGraphTreeItem> {
-    constructor() { }
+    constructor() {}
 
     private _onDidChangeTreeData: vscode.EventEmitter<CallGraphTreeItem | undefined | null | void> = new vscode.EventEmitter<CallGraphTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<CallGraphTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
