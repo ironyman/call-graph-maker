@@ -39,7 +39,13 @@
 				}
 			]
 		},
-		"commands": [{
+		"commands": [
+			{
+				"command": "call-graph-maker.gotoCallSite",
+				"title": "Go to call graph call site",
+				"icon": "$(debug-step-back)"
+			},
+			{
 				"command": "call-graph-maker.trackCurrentFunction",
 				"title": "Track current function",
 				"icon": "$(diff-insert)"
@@ -76,6 +82,18 @@
 			}
 		],
 		"menus": {
+			"view/item/context": [
+				{
+					"command": "call-graph-maker.gotoCallSite",
+					"when": "view == callGraphMakerView && viewItem == CallGraphTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.gotoCallSite",
+					"when": "view == callGraphMakerViewPanel && viewItem == CallGraphTreeItem",
+					"group": "inline"
+				}
+			],
 			"view/title": [
 				{
 					"command": "call-graph-maker.refreshCallGraphMakerView",

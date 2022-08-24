@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { TRACKED_FUNCTIONS } from './functiontracker';
 import { CallGraphNode, SortContext } from './callgraphnode';
+import { gotoReferenceInFunction } from './goto';
 
 // https://github.com/microsoft/vscode-extension-samples/tree/main/tree-view-sample
 export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGraphTreeItem> {
@@ -17,13 +18,16 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
         if (element) {
             return Promise.resolve(
                 element?.node.outgoingCalls.map(f => new CallGraphTreeItem(f,
+                    element!,
                     f.outgoingCalls.length > 0
                         ? vscode.TreeItemCollapsibleState.Collapsed
                         : vscode.TreeItemCollapsibleState.None)));
         } else {
+            // I don't think this works for recursive functions.
             return Promise.resolve(TRACKED_FUNCTIONS
                 .filter(f => f.incomingCalls.length == 0)
                 .map(f => new CallGraphTreeItem(f,
+                    null,
                     f.outgoingCalls.length > 0
                         ? vscode.TreeItemCollapsibleState.Expanded
                         : vscode.TreeItemCollapsibleState.None)));
@@ -35,18 +39,18 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
     }
 }
 
-class CallGraphTreeItem extends vscode.TreeItem {
+export class CallGraphTreeItem extends vscode.TreeItem {
     constructor(
         public readonly node: CallGraphNode,
+        public readonly treeItemParent: CallGraphTreeItem | null,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     ) {
-        
         let label = node.fn.name;
         super(label, collapsibleState);
         this.tooltip = label;
         this.id = node.fn.location.uri + ":" + node.fn.location.range.start + ":" + label;
 
-        console.log("Created", this);
+        // console.log("Created", this);
 
         // https://github.com/microsoft/vscode/blob/b32bd476eb541238f964343a0a71d9e73d08e5c9/extensions/references-view/src/types/model.ts
         // https://code.visualstudio.com/api/references/commands
@@ -65,9 +69,17 @@ class CallGraphTreeItem extends vscode.TreeItem {
         // this.description = ``;
     }
 
+    gotoCallSite() {
+        if (this.treeItemParent) {
+            gotoReferenceInFunction(this.node.identifier, this.treeItemParent.node.fn);
+        }
+    }
+
     // iconPath = {
     //     light: path.join(__filename, '..', '..', 'resources', 'light', 'dependency.svg'),
     //     dark: path.join(__filename, '..', '..', 'resources', 'dark', 'dependency.svg')
     // };
-    iconPath = new vscode.ThemeIcon("symbol-function")
+    iconPath = new vscode.ThemeIcon("symbol-function");
+
+    contextValue = 'CallGraphTreeItem';
 }
