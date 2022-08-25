@@ -2,7 +2,13 @@ import * as vscode from 'vscode';
 import { DbgChannel, assert } from './debug';
 import * as process from 'process';
 
-import { trackCurrentFunction, clearTrackedFunctions, showTrackedFunctions, restoreTrackedFunctions } from './functiontracker';
+import {
+	TRACKED_FUNCTIONS,
+	trackCurrentFunction,
+	clearTrackedFunctions,
+	showTrackedFunctions,
+	restoreTrackedFunctions,
+	deleteTrackedFunction } from './functiontracker';
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
 
@@ -13,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	restoreTrackedFunctions(context);
 
-	const treeDataProvider = new CallGraphTreeDataProvider()
+	const treeDataProvider = new CallGraphTreeDataProvider(TRACKED_FUNCTIONS);
 	vscode.window.registerTreeDataProvider(
 		'callGraphMakerView',
 		treeDataProvider
@@ -45,10 +51,22 @@ export function activate(context: vscode.ExtensionContext) {
 		await trackCurrentFunction(context);
 		treeDataProvider.refresh()
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.undoTrackedFunction', async (item: CallGraphTreeItem) => {
+		await deleteTrackedFunction(context);
+		treeDataProvider.refresh()
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.deleteTrackedFunction', async (item: CallGraphTreeItem) => {
+		await deleteTrackedFunction(context, item.node);
+		treeDataProvider.refresh()
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.clearTrackedFunctions', async () => {
 		await clearTrackedFunctions(context);
 		treeDataProvider.refresh()
 	}));
+	
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.showTrackedFunctions', () => {
 		showTrackedFunctions();
 	}));

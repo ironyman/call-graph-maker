@@ -68,6 +68,37 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	saveTrackedFunctions(context);
 }
 
+export async function deleteTrackedFunction(context: vscode.ExtensionContext, node?: CallGraphNode | undefined) {
+	if (TRACKED_FUNCTIONS.length < 1) {
+		return;
+	}
+
+	if (node == undefined) {
+		node = TRACKED_FUNCTIONS[TRACKED_FUNCTIONS.length - 1];
+	}
+
+	let index = TRACKED_FUNCTIONS.indexOf(node);
+	if (index == -1) {
+		return;
+	}
+
+	TRACKED_FUNCTIONS.splice(index, 1);
+
+	for (let n of TRACKED_FUNCTIONS) {
+		index = n.outgoingCalls.indexOf(node);
+		if (index != -1) {
+			n.outgoingCalls.splice(index, 1);
+		}
+
+		index = n.incomingCalls.indexOf(node);
+		if (index != -1) {
+			n.incomingCalls.splice(index, 1);
+		}
+	}
+
+	saveTrackedFunctions(context);
+}
+
 export async function clearTrackedFunctions(context: vscode.ExtensionContext) {
 	TRACKED_FUNCTIONS = [];
 	context.workspaceState.update("TRACKED_FUNCTIONS", undefined);
@@ -122,7 +153,7 @@ export async function showTrackedFunctions() {
 	indentLevel[0] = 0;
 
 	for (let i = 0; i < visited.length; ++i) {
-		// Get indent level
+		// Get indent level based on how many preceding nodes in topological order are callers of this node.
 		getIndent: for (let j = i - 1; j >= 0; --j) {
 			for (let outgoing of visited[j]!!.outgoingCalls) {
 				if (outgoing.fn.name == visited[i]!!.fn.name) {

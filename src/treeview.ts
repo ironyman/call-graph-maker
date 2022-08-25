@@ -1,11 +1,43 @@
 import * as vscode from 'vscode';
-import { TRACKED_FUNCTIONS } from './functiontracker';
 import { CallGraphNode, SortContext } from './callgraphnode';
 import { gotoReferenceInFunction } from './goto';
 
+
+function getRootsFromSort(functions: Array<CallGraphNode>): Array<CallGraphNode> {
+    if (functions.length == 0) {
+        return [];
+    }
+
+	let sortContext = new SortContext();
+	sortContext.start(functions);
+
+	let visited = sortContext.visitStack.toArray();
+	let indentLevel: Array<number> = new Array(visited.length);
+	indentLevel[0] = 0;
+
+    let roots = [visited[0]!];
+
+	for (let i = 0; i < visited.length; ++i) {
+		getIndent: for (let j = i - 1; j >= 0; --j) {
+			for (let outgoing of visited[j]!!.outgoingCalls) {
+				if (outgoing.fn.name == visited[i]!!.fn.name) {
+					indentLevel[i] = indentLevel[j] + 1;
+					break getIndent;
+				}
+			}
+			if (j == 0) {
+				roots.push(visited[i]!);
+			}
+		}
+	}
+
+    return roots;
+}
+
 // https://github.com/microsoft/vscode-extension-samples/tree/main/tree-view-sample
 export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGraphTreeItem> {
-    constructor() { }
+    constructor(private trackedFunctions: Array<CallGraphNode>) {
+    }
 
     private _onDidChangeTreeData: vscode.EventEmitter<CallGraphTreeItem | undefined | null | void> = new vscode.EventEmitter<CallGraphTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<CallGraphTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
@@ -24,9 +56,11 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
                         : vscode.TreeItemCollapsibleState.None)));
         } else {
             // I don't think this works for recursive functions.
-            // console.log(TRACKED_FUNCTIONS);
-            let roots = TRACKED_FUNCTIONS
-                .filter(f => f.incomingCalls.length == 0)
+            // console.log(trackedFunctions);
+            let roots = this.trackedFunctions
+                .filter(f => {
+                    return f.incomingCalls.length == 0;
+                })
                 .map(f => new CallGraphTreeItem(f,
                     null,
                     f.outgoingCalls.length > 0
@@ -34,6 +68,14 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
                         : vscode.TreeItemCollapsibleState.None));
             // console.log(roots);
 
+            if (roots.length == 0 && this.trackedFunctions.length > 0) {
+                // There are cycles in call graph, we'll show the topological sort instead.
+                roots = getRootsFromSort(this.trackedFunctions).map(f => new CallGraphTreeItem(f,
+                    null,
+                    f.outgoingCalls.length > 0
+                        ? vscode.TreeItemCollapsibleState.Expanded
+                        : vscode.TreeItemCollapsibleState.None));
+            }
             return Promise.resolve(roots);
         }
     }

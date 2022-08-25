@@ -46,9 +46,19 @@
 				"icon": "$(debug-step-back)"
 			},
 			{
+				"command": "call-graph-maker.undoTrackedFunction",
+				"title": "Undo add tracked function",
+				"icon": "$(reply)"
+			},
+			{
 				"command": "call-graph-maker.trackCurrentFunction",
 				"title": "Track current function",
 				"icon": "$(diff-insert)"
+			},
+			{
+				"command": "call-graph-maker.deleteTrackedFunction",
+				"title": "Delete tracked function",
+				"icon": "$(notebook-delete-cell)"
 			},
 			{
 				"command": "call-graph-maker.clearTrackedFunctions",
@@ -92,9 +102,24 @@
 					"command": "call-graph-maker.gotoCallSite",
 					"when": "view == callGraphMakerViewPanel && viewItem == CallGraphTreeItem",
 					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.deleteTrackedFunction",
+					"when": "view == callGraphMakerView && viewItem == CallGraphTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.deleteTrackedFunction",
+					"when": "view == callGraphMakerViewPanel && viewItem == CallGraphTreeItem",
+					"group": "inline"
 				}
 			],
 			"view/title": [
+				{
+					"command": "call-graph-maker.undoTrackedFunction",
+					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
+					"group": "navigation"
+				},
 				{
 					"command": "call-graph-maker.refreshCallGraphMakerView",
 					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
@@ -113,7 +138,7 @@
 				{
 					"command": "call-graph-maker.trackCurrentFunction",
 					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
-					"group": "navigation"
+					"group": "navigation@99"
 				}
 			],
 			"editor/context": [{
