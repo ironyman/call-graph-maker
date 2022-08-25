@@ -238,3 +238,19 @@ export class SortContext {
 		this.visitStack.pushListEntry(node.componentList);
 	}
 }
+
+export class CallGraphNodeSerializable {
+	fn: vscode.SymbolInformation;
+    content: string;
+    identifier: string;
+
+	constructor(node: CallGraphNode) {
+		this.fn = node.fn;
+        this.content = node.content;
+        this.identifier = node.identifier;
+	}
+
+	toNode(): CallGraphNode {
+		return new CallGraphNode(this.fn, { content: this.content, identifier: this.identifier, });
+	}
+}

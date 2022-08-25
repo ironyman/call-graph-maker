@@ -5,7 +5,7 @@ import { gotoReferenceInFunction } from './goto';
 
 // https://github.com/microsoft/vscode-extension-samples/tree/main/tree-view-sample
 export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGraphTreeItem> {
-    constructor() {}
+    constructor() { }
 
     private _onDidChangeTreeData: vscode.EventEmitter<CallGraphTreeItem | undefined | null | void> = new vscode.EventEmitter<CallGraphTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<CallGraphTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
@@ -24,13 +24,17 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
                         : vscode.TreeItemCollapsibleState.None)));
         } else {
             // I don't think this works for recursive functions.
-            return Promise.resolve(TRACKED_FUNCTIONS
+            // console.log(TRACKED_FUNCTIONS);
+            let roots = TRACKED_FUNCTIONS
                 .filter(f => f.incomingCalls.length == 0)
                 .map(f => new CallGraphTreeItem(f,
                     null,
                     f.outgoingCalls.length > 0
                         ? vscode.TreeItemCollapsibleState.Expanded
-                        : vscode.TreeItemCollapsibleState.None)));
+                        : vscode.TreeItemCollapsibleState.None));
+            // console.log(roots);
+
+            return Promise.resolve(roots);
         }
     }
 
@@ -48,18 +52,30 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         let label = node.fn.name;
         super(label, collapsibleState);
         this.tooltip = label;
-        this.id = node.fn.location.uri + ":" + node.fn.location.range.start + ":" + label;
+        this.id = node.fn.location.uri + ":" + node.fn.location.range.start + ":" + label + treeItemParent?.node.identifier;
 
         // console.log("Created", this);
 
         // https://github.com/microsoft/vscode/blob/b32bd476eb541238f964343a0a71d9e73d08e5c9/extensions/references-view/src/types/model.ts
         // https://code.visualstudio.com/api/references/commands
+
+        // node.fn.location.range and node.fn is just a dictionary when we deserialize so we can't use .with method.
+        // You can see it crash when you bp and enable bp on caught exceptions.
+        let target;
+        try {
+            target = node.fn.location.range.with({ end: node.fn.location.range.start });
+        } catch {
+            // It looks like this when you deserialize it lol.
+            let temp = node.fn.location.range as any;
+            target = new vscode.Range(new vscode.Position(temp[0].line, temp[0].character), new vscode.Position(temp[0].line, temp[0].character));
+        }
+
         this.command = <vscode.Command>{
             title: "Open",
             command: "vscode.open",
             arguments: [
                 node.fn.location.uri,
-                <vscode.TextDocumentShowOptions>{ selection: node.fn.location.range.with({ end: node.fn.location.range.start }) }
+                <vscode.TextDocumentShowOptions>{ selection: target }
             ]
         };
 

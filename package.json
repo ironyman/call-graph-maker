@@ -21,7 +21,7 @@
 		"viewsWelcome": [
 			{
 			  "view": "callGraphMakerViewPanel",
-			  "contents": "Go on add something [learn more](https://www.npmjs.com/).\n[Track function](command:call-graph-maker.trackCurrentFunction)"
+			  "contents": "Go on add a function [learn more](https://github.com/ironyman/call-graph-maker).\n[Track function](command:call-graph-maker.trackCurrentFunction)"
 			}
 		],
 		"views": {

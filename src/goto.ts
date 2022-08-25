@@ -58,10 +58,28 @@ export async function gotoLocalDefinition(te: vscode.TextEditor) {
 }
 
 export async function gotoReferenceInFunction(referent: string, containingFunction: vscode.SymbolInformation) {
-    let doc = await vscode.workspace.openTextDocument(containingFunction.location.uri);
-    let te = await vscode.window.showTextDocument(doc);
-    let functionStart = doc.offsetAt(containingFunction.location.range.start);
-    let functionEnd = doc.offsetAt(containingFunction.location.range.end);
+    let doc, te;
+    if (containingFunction.location.uri.fsPath === 'function') {
+        doc = await vscode.workspace.openTextDocument(containingFunction.location.uri);
+        te = await vscode.window.showTextDocument(doc);
+    } else {
+        // After deserializing those APIs above like to fail
+        let newUri = vscode.Uri.file(containingFunction.location.uri.path);
+        doc = await vscode.workspace.openTextDocument(newUri);
+        te = await vscode.window.showTextDocument(doc);
+    }
+
+    let functionStart, functionEnd;
+    try {
+        functionStart = doc.offsetAt(containingFunction.location.range.start);
+        functionEnd = doc.offsetAt(containingFunction.location.range.end);
+    } catch {
+        // These types don't work after deserializing...
+        let temp = containingFunction.location.range as any;
+        functionStart = doc.offsetAt(new vscode.Position(temp[0].line, temp[0].character));
+        functionEnd = doc.offsetAt(new vscode.Position(temp[1].line, temp[1].character));
+    }
+
     let cursorPos = te.document.offsetAt(te.selection.active);
     let searchStart = functionStart;
 

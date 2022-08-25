@@ -1,15 +1,49 @@
 import { DbgChannel, assert } from './debug';
 import * as vscode from 'vscode';
-import { CallGraphNode, SortContext } from './callgraphnode';
+import { CallGraphNode, SortContext, CallGraphNodeSerializable } from './callgraphnode';
 
 // In order that they're added to tracking.
 export let TRACKED_FUNCTIONS: Array<CallGraphNode> = [];
 
-export async function trackCurrentFunction() {
+export async function restoreTrackedFunctions(context: vscode.ExtensionContext) {
+	let serializable = JSON.parse(context.workspaceState.get("TRACKED_FUNCTIONS") || "[]");
+	// Maybe use context.storageUri? or globalState
+
+	// DbgChannel.appendLine(`Got this from workspace state ${JSON.stringify(serializable)}.`);
+	serializable.map((f: CallGraphNodeSerializable) => TRACKED_FUNCTIONS.push(connectTrackedNodes(f.fn, f.content, f.identifier)));
+}
+
+function saveTrackedFunctions(context: vscode.ExtensionContext) {
+	let serializable = JSON.stringify(TRACKED_FUNCTIONS.map(f => new CallGraphNodeSerializable(f)));
+	context.workspaceState.update("TRACKED_FUNCTIONS", serializable);
+	// DbgChannel.appendLine(`Saved state ${serializable}.`);
+}
+
+function connectTrackedNodes(fn: vscode.SymbolInformation, content: string, identifier: string): CallGraphNode {
+	let newNode = new CallGraphNode(fn, { content, identifier, });
+
+	// https://stackoverflow.com/questions/7347203/circular-references-in-javascript-garbage-collector
+	// don't worry about cycles
+	for (let n of TRACKED_FUNCTIONS) {
+		if (n.content.includes(newNode.identifier)) {
+			n.outgoingCalls.push(newNode);
+			newNode.incomingCalls.push(n);
+		}
+
+		if (newNode.content.includes(n.identifier)) {
+			newNode.outgoingCalls.push(n);
+			n.incomingCalls.push(newNode);
+		}
+	}
+
+	return newNode;
+}
+
+export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	let fn = await getCurrentFunction();
 
 	if (!fn) {
-	    DbgChannel.appendLine(`trackCurrentFunction could not find function.`);
+		DbgChannel.appendLine(`trackCurrentFunction could not find function.`);
 		return;
 	}
 
@@ -19,37 +53,24 @@ export async function trackCurrentFunction() {
 
 	DbgChannel.appendLine(`trackCurrentFunction ${fn.containerName} ${fn.name}`);
 
-    let editor = vscode.window.visibleTextEditors.find(x => x.document.uri.toString() == fn!!.location.uri.toString());
+	let editor = vscode.window.visibleTextEditors.find(x => x.document.uri.toString() == fn!!.location.uri.toString());
 
-    if (!editor) {
-	    DbgChannel.appendLine(`trackCurrentFunction could not find editor.`);
-        return;
-    }
-
-    const content = editor.document.getText(fn.location.range);
-    const identifier = fn.name.split("(")[0];
-	// BUG: identifier sometimes is not the right identifier if macros are used to define function.
-	let newNode = new CallGraphNode(fn, { content, identifier, });
-
-    // https://stackoverflow.com/questions/7347203/circular-references-in-javascript-garbage-collector
-    // don't worry about cycles
-	for (let n of TRACKED_FUNCTIONS) {
-		if (n.content.includes(newNode.identifier)) {
-            n.outgoingCalls.push(newNode);
-            newNode.incomingCalls.push(n);
-        }
-
-        if (newNode.content.includes(n.identifier)) {
-            newNode.outgoingCalls.push(n);
-            n.incomingCalls.push(newNode);
-        }
+	if (!editor) {
+		DbgChannel.appendLine(`trackCurrentFunction could not find editor.`);
+		return;
 	}
 
-	TRACKED_FUNCTIONS.push(newNode);
+	const content = editor.document.getText(fn.location.range);
+	const identifier = fn.name.split("(")[0];
+	// BUG: identifier sometimes is not the right identifier if macros are used to define function.
+
+	TRACKED_FUNCTIONS.push(connectTrackedNodes(fn, content, identifier));
+	saveTrackedFunctions(context);
 }
 
-export async function clearTrackedFunctions() {
+export async function clearTrackedFunctions(context: vscode.ExtensionContext) {
 	TRACKED_FUNCTIONS = [];
+	context.workspaceState.update("TRACKED_FUNCTIONS", undefined);
 }
 
 export async function getCurrentFunction(): Promise<vscode.SymbolInformation | null> {
@@ -76,7 +97,7 @@ export async function getCurrentFunction(): Promise<vscode.SymbolInformation | n
 		return null;
 	}
 
-		
+
 	for (let s of symbols) {
 		if (s.kind != vscode.SymbolKind.Function) {
 			continue;
@@ -91,7 +112,7 @@ export async function getCurrentFunction(): Promise<vscode.SymbolInformation | n
 }
 
 export async function showTrackedFunctions() {
-    let sortContext = new SortContext();
+	let sortContext = new SortContext();
 	sortContext.start(TRACKED_FUNCTIONS);
 
 	let content = "";
@@ -105,7 +126,7 @@ export async function showTrackedFunctions() {
 		getIndent: for (let j = i - 1; j >= 0; --j) {
 			for (let outgoing of visited[j]!!.outgoingCalls) {
 				if (outgoing.fn.name == visited[i]!!.fn.name) {
-					indentLevel[i] = indentLevel[j] + 1; 
+					indentLevel[i] = indentLevel[j] + 1;
 					break getIndent;
 				}
 			}
@@ -113,7 +134,7 @@ export async function showTrackedFunctions() {
 				indentLevel[i] = 0;
 			}
 		}
-		
+
 		let n = visited[i]!!;
 		let indent = " ".repeat(indentLevel[i]);
 		content = content + indent + n.fn.name + "\n";
