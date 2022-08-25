@@ -70,9 +70,15 @@ export async function gotoReferenceInFunction(referent: string, containingFuncti
     }
 
     let text = doc.getText();
-    let foundFirst = text.indexOf(referent, searchStart);
+    let found = text.indexOf(referent, searchStart);
 
-    if (foundFirst >= functionStart) {
-        await gotoInEditor(te, foundFirst);
+    if (found < functionStart || found > functionEnd) {
+        found = text.indexOf(referent, functionStart);
+    }
+
+    if (found > functionStart && found < functionEnd) {
+        await gotoInEditor(te, found);
+    } else {
+        vscode.window.showWarningMessage("Reference not found");
     }
 }
