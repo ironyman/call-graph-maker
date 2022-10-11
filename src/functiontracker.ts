@@ -100,8 +100,12 @@ export async function deleteTrackedFunction(context: vscode.ExtensionContext, no
 }
 
 export async function clearTrackedFunctions(context: vscode.ExtensionContext) {
-	TRACKED_FUNCTIONS = [];
-	context.workspaceState.update("TRACKED_FUNCTIONS", undefined);
+	TRACKED_FUNCTIONS.length = 0;
+	try {
+		context.workspaceState.update("TRACKED_FUNCTIONS", undefined);
+	} catch (err) {
+		DbgChannel.appendLine(`clearTrackedFunctions: workspaceState.update error ${err}.`);
+	};
 }
 
 export async function getCurrentFunction(): Promise<vscode.SymbolInformation | null> {

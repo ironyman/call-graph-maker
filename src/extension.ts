@@ -74,6 +74,8 @@ export function activate(context: vscode.ExtensionContext) {
 		gotoLocalDefinition(te);
 	}));
 	// context.subscriptions.push(vscode.languages.registerDocumentHighlightProvider())
+
+	DbgChannel.appendLine(`Call graph maker initialized using workspace ${context.extensionUri}, ${context.extensionPath}, ${context.storageUri}`);
 }
 
 // this method is called when your extension is deactivated
