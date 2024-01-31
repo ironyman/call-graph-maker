@@ -10,6 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
+		"onStartupFinished",
 		"onCommand:call-graph-maker.trackCurrentFunction",
 		"onCommand:call-graph-maker.clearTrackedFunctions",
 		"onCommand:call-graph-maker.showTrackedFunctions",
@@ -25,10 +26,22 @@
 			}
 		],
 		"views": {
-			"explorer": [{
+			"explorer": [
+				{
 				"id": "callGraphMakerView",
 				"name": "Call Graph Maker View"
-			}],
+				}
+			],
+			"calicoPanel": [
+				{
+					"type": "webview",
+					"id": "calicoColors.colorsView",
+					"name": "Calico Colors",
+				  "icon": "$(list-unordered)",
+				  "contextualTitle": "Call Graph Maker Panel Explorer",
+				  	"visibility": "visible"
+				}
+			],
 			"callGraphMakerPanel": [
 				{
 				  "id": "callGraphMakerViewPanel",
@@ -40,6 +53,17 @@
 			]
 		},
 		"commands": [
+			{
+				"command": "calicoColors.addColor",
+				"category": "Calico Colors",
+				"title": "Add Color"
+			},
+			{
+				"command": "calicoColors.clearColors",
+				"category": "Calico Colors",
+				"title": "Clear Colors",
+				"icon": "$(clear-all)"
+			},
 			{
 				"command": "call-graph-maker.gotoCallSite",
 				"title": "Go to call graph call site",
@@ -116,6 +140,11 @@
 			],
 			"view/title": [
 				{
+					"command": "calicoColors.clearColors",
+					"group": "navigation",
+					"when": "view == calicoColors.colorsView"
+				},
+				{
 					"command": "call-graph-maker.undoTrackedFunction",
 					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation"
@@ -165,8 +194,23 @@
 				  "id": "callGraphMakerPanel",
 				  "title": "Call Graph Maker",
 				  "icon": "$(list-tree)"
+				},
+				{
+					"id": "calicoPanel",
+					"title": "Calico",
+					"icon": "$(list-tree)",
+					"icon2": "$(gitlens-commit-horizontal)"
 				}
 			]
+		},
+		"icons": {
+			"gitlens-commit-horizontal": {
+				"description": "commit-horizontal icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f101"
+				}
+			}
 		}
 	},
 	"scripts": {
