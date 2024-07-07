@@ -61,8 +61,10 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	}
 
 	const content = editor.document.getText(fn.location.range);
-	const identifier = fn.name.split("(")[0];
-	// BUG: identifier sometimes is not the right identifier if macros are used to define function.
+	let identifier = fn.name;
+	if (['c', 'cpp', 'cxx'].indexOf(vscode.window.activeTextEditor?.document.languageId || '') >= 0) {
+		identifier = fn.name.split("(")[0];
+	}
 
 	TRACKED_FUNCTIONS.push(connectTrackedNodes(fn, content, identifier));
 	saveTrackedFunctions(context);
