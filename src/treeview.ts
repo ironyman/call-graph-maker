@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { CallGraphNode, SortContext } from './callgraphnode';
 import { gotoReferenceInFunction } from './goto';
-
+import * as path from 'path';
 
 function getRootsFromSort(functions: Array<CallGraphNode>): Array<CallGraphNode> {
     if (functions.length == 0) {
@@ -52,7 +52,7 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
                 element?.node.outgoingCalls.map(f => new CallGraphTreeItem(f,
                     element!,
                     f.outgoingCalls.length > 0
-                        ? vscode.TreeItemCollapsibleState.Collapsed
+                        ? vscode.TreeItemCollapsibleState.Expanded
                         : vscode.TreeItemCollapsibleState.None)));
         } else {
             // I don't think this works for recursive functions.
@@ -92,10 +92,12 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     ) {
         let label = node.fn.name;
-        super(label, collapsibleState);
+        super(label, vscode.TreeItemCollapsibleState.Expanded);
+        // Expanded by default
+        this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
         this.tooltip = label;
-        this.id = node.fn.location.uri + ":" + node.fn.location.range.start + ":" + label + treeItemParent?.node.identifier;
-
+        this.id = node.fn.location.uri + ":" + node.fn.location.range.start.line + ":" + label + treeItemParent?.node.identifier;
+        this.description = path.basename(node.fn.location.uri.path);
         // console.log("Created", this);
 
         // https://github.com/microsoft/vscode/blob/b32bd476eb541238f964343a0a71d9e73d08e5c9/extensions/references-view/src/types/model.ts
