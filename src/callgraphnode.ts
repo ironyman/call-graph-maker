@@ -37,11 +37,17 @@ class SingleListEntry<T> {
 }
 
 export class CallGraphNode {
-	fn: vscode.SymbolInformation;
+	fnPath: Array<vscode.SymbolInformation>;
 	incomingCalls: Array<CallGraphNode>;
 	outgoingCalls: Array<CallGraphNode>;
     content: string;
-    identifier: string;
+    // This is usually the vscode.SymbolInformation.name, i.e. identifier of the function.
+	// But in c and cpp, the name of the function is functionName(type1, type2)
+	// and the function is referenced at call site as functionName so we have to process the
+	// name to eliminate the parameters.
+	callSiteName: string; 
+
+	_displayName?: string;
 
 	// Variables for Tarjan's SCC and topolgical sort finding algorithm
 	// Tarjan calls this NUMBER. It's the iteration number of depth first search when 
@@ -65,17 +71,18 @@ export class CallGraphNode {
 		this.componentList = new SingleListEntry(this);
 	}
 
-	constructor(fn: vscode.SymbolInformation, opts?: {
+	constructor(fnPath: Array<vscode.SymbolInformation>, opts?: {
 		incomingCalls?: Array<CallGraphNode>,
 		outgoingCalls?: Array<CallGraphNode>,
         content?: string,
-        identifier?: string,
+        callSiteName?: string,
+		displayName?: string,
 	}) {
-		this.fn = fn;
+		this.fnPath = fnPath;
 		this.incomingCalls = new Array;
 		this.outgoingCalls = new Array;
         this.content = "";
-        this.identifier = "";
+        this.callSiteName = "";
 
 		this.visitIndex = 0;
 		this.lowlink = 0;
@@ -94,9 +101,28 @@ export class CallGraphNode {
 				this.content = opts.content;
 			}
             
-            if (typeof opts.identifier !== 'undefined') {
-				this.identifier = opts.identifier;
+            if (typeof opts.callSiteName !== 'undefined') {
+				this.callSiteName = opts.callSiteName;
 			}
+
+			if (opts.displayName !== undefined) {
+				this._displayName = opts.displayName;
+			}
+		}
+	}
+
+	get fn(): vscode.SymbolInformation {
+		return this.fnPath[this.fnPath.length - 1];
+	}
+	get displayName(): string {
+		if (this._displayName) {
+			return this._displayName;
+		} else if (this.fnPath.length > 1) {
+			return this.fnPath.reduce((prev: string, current) => {
+				return prev + current.name + '::';
+			}, '').slice(0, -2);
+		} else {
+			return this.callSiteName;
 		}
 	}
 }
@@ -240,17 +266,17 @@ export class SortContext {
 }
 
 export class CallGraphNodeSerializable {
-	fn: vscode.SymbolInformation;
+	fnPath: Array<vscode.SymbolInformation>;
     content: string;
-    identifier: string;
+    callSiteName: string;
 
 	constructor(node: CallGraphNode) {
-		this.fn = node.fn;
+		this.fnPath = node.fnPath;
         this.content = node.content;
-        this.identifier = node.identifier;
+        this.callSiteName = node.callSiteName;
 	}
 
 	toNode(): CallGraphNode {
-		return new CallGraphNode(this.fn, { content: this.content, identifier: this.identifier, });
+		return new CallGraphNode(this.fnPath, { content: this.content, callSiteName: this.callSiteName, });
 	}
 }

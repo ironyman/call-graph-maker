@@ -10,7 +10,8 @@ export async function restoreTrackedFunctions(context: vscode.ExtensionContext) 
 	// Maybe use context.storageUri? or globalState
 
 	// DbgChannel.appendLine(`Got this from workspace state ${JSON.stringify(serializable)}.`);
-	serializable.map((f: CallGraphNodeSerializable) => TRACKED_FUNCTIONS.push(connectTrackedNodes(f.fn, f.content, f.identifier)));
+	let newNode = new CallGraphNode(serializable.fnPath, { content: serializable.content, callSiteName: serializable.callSiteName, });
+	serializable.map((f: CallGraphNodeSerializable) => TRACKED_FUNCTIONS.push(connectTrackedNodes(newNode)));
 }
 
 function saveTrackedFunctions(context: vscode.ExtensionContext) {
@@ -19,18 +20,16 @@ function saveTrackedFunctions(context: vscode.ExtensionContext) {
 	// DbgChannel.appendLine(`Saved state ${serializable}.`);
 }
 
-function connectTrackedNodes(fn: vscode.SymbolInformation, content: string, identifier: string): CallGraphNode {
-	let newNode = new CallGraphNode(fn, { content, identifier, });
-
+function connectTrackedNodes(newNode: CallGraphNode): CallGraphNode {
 	// https://stackoverflow.com/questions/7347203/circular-references-in-javascript-garbage-collector
 	// don't worry about cycles
 	for (let n of TRACKED_FUNCTIONS) {
-		if (n.content.includes(newNode.identifier)) {
+		if (n.content.includes(newNode.callSiteName)) {
 			n.outgoingCalls.push(newNode);
 			newNode.incomingCalls.push(n);
 		}
 
-		if (newNode.content.includes(n.identifier)) {
+		if (newNode.content.includes(n.callSiteName)) {
 			newNode.outgoingCalls.push(n);
 			n.incomingCalls.push(newNode);
 		}
@@ -39,21 +38,23 @@ function connectTrackedNodes(fn: vscode.SymbolInformation, content: string, iden
 	return newNode;
 }
 
-export async function trackCurrentFunction(context: vscode.ExtensionContext) {
-	let fn = await getCurrentFunction();
 
-	if (!fn) {
+export async function trackCurrentFunction(context: vscode.ExtensionContext) {
+	let fnPath = await getCurrentFunctionPath();
+
+	if (fnPath.length === 0) {
 		DbgChannel.appendLine(`trackCurrentFunction could not find function.`);
 		return;
 	}
+	let fn = fnPath[fnPath.length - 1];
 
-	if (TRACKED_FUNCTIONS.find((existing) => existing.fn.name == fn!!.name)) {
+	if (TRACKED_FUNCTIONS.find((existing) => existing.fn.name === fn!!.name)) {
 		return;
 	}
 
 	DbgChannel.appendLine(`trackCurrentFunction ${fn.containerName} ${fn.name}`);
 
-	let editor = vscode.window.visibleTextEditors.find(x => x.document.uri.toString() == fn!!.location.uri.toString());
+	let editor = vscode.window.visibleTextEditors.find(x => x.document.uri.toString() === fn!!.location.uri.toString());
 
 	if (!editor) {
 		DbgChannel.appendLine(`trackCurrentFunction could not find editor.`);
@@ -65,8 +66,9 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	if (['c', 'cpp', 'cxx'].indexOf(vscode.window.activeTextEditor?.document.languageId || '') >= 0) {
 		identifier = fn.name.split("(")[0];
 	}
-
-	TRACKED_FUNCTIONS.push(connectTrackedNodes(fn, content, identifier));
+	let newNode = new CallGraphNode(fnPath, { content, callSiteName: identifier, });
+	
+	TRACKED_FUNCTIONS.push(connectTrackedNodes(newNode));
 	saveTrackedFunctions(context);
 }
 
@@ -75,12 +77,12 @@ export async function deleteTrackedFunction(context: vscode.ExtensionContext, no
 		return;
 	}
 
-	if (node == undefined) {
+	if (node === undefined) {
 		node = TRACKED_FUNCTIONS[TRACKED_FUNCTIONS.length - 1];
 	}
 
 	let index = TRACKED_FUNCTIONS.indexOf(node);
-	if (index == -1) {
+	if (index === -1) {
 		return;
 	}
 
@@ -88,12 +90,12 @@ export async function deleteTrackedFunction(context: vscode.ExtensionContext, no
 
 	for (let n of TRACKED_FUNCTIONS) {
 		index = n.outgoingCalls.indexOf(node);
-		if (index != -1) {
+		if (index !== -1) {
 			n.outgoingCalls.splice(index, 1);
 		}
 
 		index = n.incomingCalls.indexOf(node);
-		if (index != -1) {
+		if (index !== -1) {
 			n.incomingCalls.splice(index, 1);
 		}
 	}
@@ -128,24 +130,72 @@ export async function getCurrentFunction(): Promise<vscode.SymbolInformation | n
 	if (!(Symbol.iterator in Object(symbols))) {
 		if (symbols == undefined) {
 			DbgChannel.appendLine(`Symbol provider not ready yet.`);
-			return null;
+		} else {
+			DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
 		}
-		DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
 		return null;
 	}
 
+	let path: Array<vscode.SymbolInformation> = [];
+	return getFunctionAtPosition(activeTextEditor.selection.start, symbols, path);
+}
+
+async function getFunctionAtPosition(
+	pos: vscode.Position,
+	symbols: Array<vscode.SymbolInformation>,
+	path: Array<any>): Promise<vscode.SymbolInformation | null> {
 
 	for (let s of symbols) {
-		if (s.kind != vscode.SymbolKind.Function) {
+		
+		if (!s.location.range.contains(pos)) {
 			continue;
 		}
+		
+		path.push(s);
 
-		if (s.location.range.contains(activeTextEditor.selection.start)) {
+		if (s.kind === vscode.SymbolKind.Function ||
+            s.kind === vscode.SymbolKind.Method ||
+            s.kind === vscode.SymbolKind.Constructor) {
 			return s;
 		}
+
+		let children = (s as any).children;
+		if (children !== undefined && children.length > 0) {
+			return getFunctionAtPosition(pos, children, path);
+		}
+	}
+	return null;
+}
+
+
+export async function getCurrentFunctionPath(): Promise<Array<vscode.SymbolInformation>> {
+	let activeTextEditor = vscode.window.activeTextEditor;
+	if (!activeTextEditor
+		|| activeTextEditor.selections.length != 1) {
+		return [];
 	}
 
-	return null;
+	// Allow selections, just treat start of selection as current.
+	// if (activeTextEditor.selection.start.isBefore(activeTextEditor.selection.end)) {
+	// 	return null;
+	// }
+
+	const symbols: Array<vscode.SymbolInformation> = await vscode.commands.executeCommand(
+		'vscode.executeDocumentSymbolProvider', activeTextEditor.document.uri);
+
+	if (!(Symbol.iterator in Object(symbols))) {
+		if (symbols == undefined) {
+			DbgChannel.appendLine(`Symbol provider not ready yet.`);
+		} else {
+			DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
+		}
+		return [];
+	}
+
+	let path: Array<vscode.SymbolInformation> = [];
+	getFunctionAtPosition(activeTextEditor.selection.start, symbols, path);
+
+	return path;
 }
 
 export async function showTrackedFunctions() {

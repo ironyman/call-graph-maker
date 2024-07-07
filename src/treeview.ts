@@ -91,12 +91,13 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         public readonly treeItemParent: CallGraphTreeItem | null,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     ) {
-        let label = node.fn.name;
+        let label = node.displayName;
         super(label, vscode.TreeItemCollapsibleState.Expanded);
         // Expanded by default
         this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
         this.tooltip = label;
-        this.id = node.fn.location.uri + ":" + node.fn.location.range.start.line + ":" + label + treeItemParent?.node.identifier;
+        // this.id = node.fn.location.uri + ":" + node.fn.location.range.start.line + ":" + label + treeItemParent?.node.callSiteName;
+        this.id = node.displayName;
         this.description = path.basename(node.fn.location.uri.path);
         // console.log("Created", this);
 
@@ -124,14 +125,14 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         };
 
         // ${node.fn.location}
-        // node.identifier, is sometimes wrong if weird macros are used may conflict if identifiers are same.
+        // node.callSiteName, is sometimes wrong if weird macros are used may conflict if identifiers (callSiteName) are same.
         // node.fn.containerName is susually empty
         // this.description = ``;
     }
 
     gotoCallSite() {
         if (this.treeItemParent) {
-            gotoReferenceInFunction(this.node.identifier, this.treeItemParent.node.fn);
+            gotoReferenceInFunction(this.node.callSiteName, this.treeItemParent.node.fn);
         }
     }
 

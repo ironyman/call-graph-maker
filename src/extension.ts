@@ -8,16 +8,39 @@ import {
 	clearTrackedFunctions,
 	showTrackedFunctions,
 	restoreTrackedFunctions,
-	deleteTrackedFunction } from './functiontracker';
+	deleteTrackedFunction, 
+	getCurrentFunction} from './functiontracker';
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
+
+async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelectionChangeEvent) {
+    console.log("selection changed");
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+		return;
+	}
+
+	if (editor.document.fileName.startsWith('extension-output')) {
+		// This extension will output something which will cause editor selection change in extension output view causing infinite loop.
+		return;
+	}
+	// console.log(editor.document.fileName);
+
+    let symbol = await getCurrentFunction();
+	if (symbol) {
+		console.log(symbol);
+
+		vscode.commands.executeCommand('call-graph-maker.trackCurrentFunction');
+	}
+}
 
 export function activate(context: vscode.ExtensionContext) {
 	if (process.env.VSCODE_DEBUG_MODE === "true") {
 		DbgChannel.show();
 	}
 
-	restoreTrackedFunctions(context);
+	// Restore fails to restore tracked functions sometimes, the id of callgraphitems are undefined?
+	// restoreTrackedFunctions(context);
 
 	const treeDataProvider = new CallGraphTreeDataProvider(TRACKED_FUNCTIONS);
 	vscode.window.registerTreeDataProvider(
@@ -75,6 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 	// context.subscriptions.push(vscode.languages.registerDocumentHighlightProvider())
 
+	vscode.window.onDidChangeTextEditorSelection(onDidChangeTextEditorSelectionListener);
 	DbgChannel.appendLine(`Call graph maker initialized using workspace ${context.extensionUri}, ${context.extensionPath}, ${context.storageUri}`);
 }
 
