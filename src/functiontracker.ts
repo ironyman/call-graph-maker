@@ -47,6 +47,17 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 		return;
 	}
 	let fn = fnPath[fnPath.length - 1];
+	let identifier = fn.name;
+	if (['c', 'cpp', 'cxx'].indexOf(vscode.window.activeTextEditor?.document.languageId || '') >= 0) {
+		identifier = fn.name.split("(")[0];
+	} else if (['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].indexOf(vscode.window.activeTextEditor?.document.languageId || '') >= 0) {
+		// Ignore unnamed callbacks.
+		if (fnPath.length > 1 && fn.name.endsWith(' callback')) {
+			fnPath = fnPath.slice(0, -1);
+			fn = fnPath[fnPath.length - 1];
+			identifier = fn.name;
+		}
+	}
 
 	DbgChannel.appendLine(`trackCurrentFunction ${fn.containerName} ${fn.name}`);
 
@@ -58,13 +69,9 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	}
 
 	const content = editor.document.getText(fn.location.range);
-	let identifier = fn.name;
-	if (['c', 'cpp', 'cxx'].indexOf(vscode.window.activeTextEditor?.document.languageId || '') >= 0) {
-		identifier = fn.name.split("(")[0];
-	}
 	let newNode = new CallGraphNode(fnPath, { content, callSiteName: identifier, });
 
-	
+
 	let existing = TRACKED_FUNCTIONS.find((existing) => newNode.isSameReferrent(existing));
 	if (existing !== undefined) {
 		deleteTrackedFunction(context, existing);
