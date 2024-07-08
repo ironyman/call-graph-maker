@@ -3,6 +3,7 @@ import { CallGraphNode, SortContext } from './callgraphnode';
 import { gotoReferenceInFunction } from './goto';
 import * as path from 'path';
 import { getRoots } from './functiontracker';
+import { v4 as uuidv4 } from 'uuid';
 
 // https://github.com/microsoft/vscode-extension-samples/tree/main/tree-view-sample
 export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGraphTreeItem> {
@@ -48,7 +49,10 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
         this.tooltip = label;
         // this.id = node.fn.location.uri + ":" + node.fn.location.range.start.line + ":" + label + treeItemParent?.node.callSiteName;
-        this.id = node.displayName;
+        // this.id = node.displayName;
+        // Because multiple nodes could have the same children, the same child node could be displayed multiple times in tree view
+        // which would all require different id to be rendered.
+        this.id = uuidv4();
         this.description = path.basename(node.fn.location.uri.path);
         // console.log("Created", this);
 

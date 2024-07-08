@@ -20,22 +20,24 @@
 	"contributes": {
 		"viewsWelcome": [
 			{
-			  "view": "callGraphMakerViewPanel",
-			  "contents": "Go on add a function [learn more](https://github.com/ironyman/call-graph-maker).\n[Track function](command:call-graph-maker.trackCurrentFunction)"
+				"view": "callGraphMakerViewPanel",
+				"contents": "Go on add a function [learn more](https://github.com/ironyman/call-graph-maker).\n[Track function](command:call-graph-maker.trackCurrentFunction)"
 			}
 		],
 		"views": {
-			"explorer": [{
-				"id": "callGraphMakerView",
-				"name": "Call Graph Maker View"
-			}],
+			"explorer": [
+				{
+					"id": "callGraphMakerView",
+					"name": "Call Graph Maker View"
+				}
+			],
 			"callGraphMakerPanel": [
 				{
-				  "id": "callGraphMakerViewPanel",
-				  "name": "Call Graph Maker Panel",
-				  "icon": "$(list-unordered)",
-				  "contextualTitle": "Call Graph Maker Panel Explorer",
-				  "visibility": "visible"
+					"id": "callGraphMakerViewPanel",
+					"name": "Call Graph Maker Panel",
+					"icon": "$(list-unordered)",
+					"contextualTitle": "Call Graph Maker Panel Explorer",
+					"visibility": "visible"
 				}
 			]
 		},
@@ -80,7 +82,8 @@
 				"icon": "$(refresh)"
 			}
 		],
-		"keybindings": [{
+		"keybindings": [
+			{
 				"command": "call-graph-maker.trackCurrentFunction",
 				"key": "ctrl+y t",
 				"mac": "cmd+y t"
@@ -141,7 +144,8 @@
 					"group": "navigation@99"
 				}
 			],
-			"editor/context": [{
+			"editor/context": [
+				{
 					"command": "call-graph-maker.trackCurrentFunction",
 					"group": "call-graph-maker@1"
 				},
@@ -162,9 +166,9 @@
 		"viewsContainers": {
 			"activitybar": [
 				{
-				  "id": "callGraphMakerPanel",
-				  "title": "Call Graph Maker",
-				  "icon": "$(list-tree)"
+					"id": "callGraphMakerPanel",
+					"title": "Call Graph Maker",
+					"icon": "$(list-tree)"
 				}
 			]
 		}
@@ -181,19 +185,21 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.65.0",
 		"@types/glob": "^7.2.0",
 		"@types/mocha": "^9.1.0",
 		"@types/node": "14.x",
+		"@types/uuid": "^10.0.0",
+		"@types/vscode": "^1.65.0",
 		"@typescript-eslint/eslint-plugin": "^5.12.1",
 		"@typescript-eslint/parser": "^5.12.1",
+		"@vscode/test-electron": "^2.1.2",
 		"eslint": "^8.9.0",
 		"glob": "^7.2.0",
 		"mocha": "^9.2.1",
-		"typescript": "^4.5.5",
 		"ts-loader": "^9.2.6",
+		"typescript": "^4.5.5",
+		"uuid": "^10.0.0",
 		"webpack": "^5.69.1",
-		"webpack-cli": "^4.9.2",
-		"@vscode/test-electron": "^2.1.2"
+		"webpack-cli": "^4.9.2"
 	}
 }
