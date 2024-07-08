@@ -1,10 +1,13 @@
 import { DbgChannel, assert } from './debug';
 import * as vscode from 'vscode';
 
+// Singly linked list type.
 class SingleListEntry<T> {
 	next: SingleListEntry<T> | undefined;
 
-	// The head may have undefined container. 
+	// The head may have undefined container.
+	// Rather, this is the contained object. Name is weird because this is modeled off of
+	// SINGLE_LIST_ENTRY from msdn.
 	container: T | undefined;
 
 	constructor(container?: T, next?: SingleListEntry<T>) {
@@ -12,14 +15,16 @@ class SingleListEntry<T> {
 		this.next = next;
 	}
 
+	// Push to head of list.
 	pushListEntry(next: SingleListEntry<T>) {
 		next.next = this.next;
 		this.next = next;
 	}
 
+	// Pop from head.
 	popListEntry() {
 		let first = this.next;
-		if (first != undefined) {
+		if (first !== undefined) {
 			this.next = first.next;
 		}
 		return first;
@@ -28,8 +33,20 @@ class SingleListEntry<T> {
 	toArray(): Array<T | undefined> {
 		let node = this.next;
 		let result = [];
-		while (node != undefined) {
+		while (node !== undefined) {
 			result.push(node.container);
+			node = node.next;
+		}
+		return result;
+	}
+
+	toArrayNonEmpty(): Array<T> {
+		let node = this.next;
+		let result = [];
+		while (node !== undefined) {
+			if (node.container !== undefined) {
+				result.push(node.container);
+			}
 			node = node.next;
 		}
 		return result;
@@ -65,6 +82,12 @@ export class CallGraphNode {
 	// If this node is in an SCC, this list connects to other nodes of the same SCC.
 	componentList: SingleListEntry<CallGraphNode>;
 
+	lastUpdateTime: Date;
+	// Propagate lastUpdateTime from bottom of call hierchary from outgoingCalls direction
+	// to root to calculate this. This is needed to sort and display the most recently viewed call hierarchy
+	// in tree view.
+	lastUpdateTimeOfChildren: Date;
+
 	resetSortState() {
 		this.visitIndex = 0;
 		this.lowlink = 0;
@@ -87,8 +110,10 @@ export class CallGraphNode {
 		this.visitIndex = 0;
 		this.lowlink = 0;
 		this.componentList = new SingleListEntry(this);
+		this.lastUpdateTime = new Date();
+		this.lastUpdateTimeOfChildren = new Date();
 
-		if (typeof opts != 'undefined') {
+		if (typeof opts !== 'undefined') {
 			if (typeof opts.incomingCalls !== 'undefined') {
 				this.incomingCalls = [...opts.incomingCalls];
 			}
@@ -124,6 +149,10 @@ export class CallGraphNode {
 		} else {
 			return this.callSiteName;
 		}
+	}
+
+	isSameReferrent(other: CallGraphNode): boolean {
+		return this.displayName === other.displayName;
 	}
 }
 
@@ -212,7 +241,7 @@ export class SortContext {
 		}
 
 		for (let n of nodes) {
-			if (n.visitIndex == 0) {
+			if (n.visitIndex === 0) {
 				this.dfs(n);
 			}
 		}
@@ -237,8 +266,10 @@ export class SortContext {
 	//   return c
 
 	reverse(head?: SingleListEntry<CallGraphNode>): SingleListEntry<CallGraphNode> | undefined {
-		if (head == undefined || head.next == undefined)
+		if (head === undefined || head.next === undefined) {
 			return head;
+		}
+
 		let tail = this.reverse(head.next); // Return tail so it becomes the new head.
 
 		head.next.next = head;
@@ -255,7 +286,7 @@ export class SortContext {
 		node.visitIndex = 1;
 		
 		for (let neighbor of node.outgoingCalls) {
-			if (neighbor.visitIndex == 0) {
+			if (neighbor.visitIndex === 0) {
 				// Neighbor is unvisited, continue search.
 				this.dfs(neighbor);
 			}

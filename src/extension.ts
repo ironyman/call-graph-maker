@@ -20,7 +20,7 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
 		return;
 	}
 
-	if (editor.document.fileName.startsWith('extension-output')) {
+	if (editor.document.fileName.startsWith('extension-output') || e.textEditor.document.fileName.startsWith('extension-output')) {
 		// This extension will output something which will cause editor selection change in extension output view causing infinite loop.
 		return;
 	}
@@ -72,22 +72,22 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand('call-graph-maker.trackCurrentFunction', async (te) => {
 		await trackCurrentFunction(context);
-		treeDataProvider.refresh()
+		treeDataProvider.refresh();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.undoTrackedFunction', async (item: CallGraphTreeItem) => {
 		await deleteTrackedFunction(context);
-		treeDataProvider.refresh()
+		treeDataProvider.refresh();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.deleteTrackedFunction', async (item: CallGraphTreeItem) => {
 		await deleteTrackedFunction(context, item.node);
-		treeDataProvider.refresh()
+		treeDataProvider.refresh();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.clearTrackedFunctions', async () => {
 		await clearTrackedFunctions(context);
-		treeDataProvider.refresh()
+		treeDataProvider.refresh();
 	}));
 	
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.showTrackedFunctions', () => {

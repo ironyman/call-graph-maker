@@ -48,10 +48,6 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	}
 	let fn = fnPath[fnPath.length - 1];
 
-	if (TRACKED_FUNCTIONS.find((existing) => existing.fn.name === fn!!.name)) {
-		return;
-	}
-
 	DbgChannel.appendLine(`trackCurrentFunction ${fn.containerName} ${fn.name}`);
 
 	let editor = vscode.window.visibleTextEditors.find(x => x.document.uri.toString() === fn!!.location.uri.toString());
@@ -67,7 +63,13 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 		identifier = fn.name.split("(")[0];
 	}
 	let newNode = new CallGraphNode(fnPath, { content, callSiteName: identifier, });
+
 	
+	let existing = TRACKED_FUNCTIONS.find((existing) => newNode.isSameReferrent(existing));
+	if (existing !== undefined) {
+		deleteTrackedFunction(context, existing);
+	}
+
 	TRACKED_FUNCTIONS.push(connectTrackedNodes(newNode));
 	saveTrackedFunctions(context);
 }
@@ -115,7 +117,7 @@ export async function clearTrackedFunctions(context: vscode.ExtensionContext) {
 export async function getCurrentFunction(): Promise<vscode.SymbolInformation | null> {
 	let activeTextEditor = vscode.window.activeTextEditor;
 	if (!activeTextEditor
-		|| activeTextEditor.selections.length != 1) {
+		|| activeTextEditor.selections.length !== 1) {
 		return null;
 	}
 
@@ -128,7 +130,7 @@ export async function getCurrentFunction(): Promise<vscode.SymbolInformation | n
 		'vscode.executeDocumentSymbolProvider', activeTextEditor.document.uri);
 
 	if (!(Symbol.iterator in Object(symbols))) {
-		if (symbols == undefined) {
+		if (symbols === undefined) {
 			DbgChannel.appendLine(`Symbol provider not ready yet.`);
 		} else {
 			DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
@@ -146,16 +148,16 @@ async function getFunctionAtPosition(
 	path: Array<any>): Promise<vscode.SymbolInformation | null> {
 
 	for (let s of symbols) {
-		
+
 		if (!s.location.range.contains(pos)) {
 			continue;
 		}
-		
+
 		path.push(s);
 
 		if (s.kind === vscode.SymbolKind.Function ||
-            s.kind === vscode.SymbolKind.Method ||
-            s.kind === vscode.SymbolKind.Constructor) {
+			s.kind === vscode.SymbolKind.Method ||
+			s.kind === vscode.SymbolKind.Constructor) {
 			return s;
 		}
 
@@ -171,7 +173,7 @@ async function getFunctionAtPosition(
 export async function getCurrentFunctionPath(): Promise<Array<vscode.SymbolInformation>> {
 	let activeTextEditor = vscode.window.activeTextEditor;
 	if (!activeTextEditor
-		|| activeTextEditor.selections.length != 1) {
+		|| activeTextEditor.selections.length !== 1) {
 		return [];
 	}
 
@@ -184,7 +186,7 @@ export async function getCurrentFunctionPath(): Promise<Array<vscode.SymbolInfor
 		'vscode.executeDocumentSymbolProvider', activeTextEditor.document.uri);
 
 	if (!(Symbol.iterator in Object(symbols))) {
-		if (symbols == undefined) {
+		if (symbols === undefined) {
 			DbgChannel.appendLine(`Symbol provider not ready yet.`);
 		} else {
 			DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
@@ -212,12 +214,12 @@ export async function showTrackedFunctions() {
 		// Get indent level based on how many preceding nodes in topological order are callers of this node.
 		getIndent: for (let j = i - 1; j >= 0; --j) {
 			for (let outgoing of visited[j]!!.outgoingCalls) {
-				if (outgoing.fn.name == visited[i]!!.fn.name) {
+				if (outgoing.fn.name === visited[i]!!.fn.name) {
 					indentLevel[i] = indentLevel[j] + 1;
 					break getIndent;
 				}
 			}
-			if (j == 0) {
+			if (j === 0) {
 				indentLevel[i] = 0;
 			}
 		}
@@ -233,4 +235,69 @@ export async function showTrackedFunctions() {
 	}).then(newDocument => {
 		vscode.window.showTextDocument(newDocument);
 	});
+}
+
+export function getRootsFromTopologicallySortedFunctions(functions: Array<CallGraphNode>): Array<CallGraphNode> {
+	if (functions.length === 0) {
+		return [];
+	}
+
+	let sortContext = new SortContext();
+	sortContext.start(functions);
+
+	let visited = sortContext.visitStack.toArrayNonEmpty();
+
+	// This is the last pushed node from dfs so it's definitely a root.
+	let roots = [visited[0]];
+
+	for (let i = 0; i < visited.length; ++i) {
+		jLoop:
+		for (let j = i - 1; j >= 0; --j) {
+			for (let outgoing of visited[j].outgoingCalls) {
+				if (outgoing.fn.name === visited[i].fn.name) {
+					break jLoop;
+				}
+			}
+			// If no nodes preceding this node in topologically order has called this node, then it's a root.
+			// Wait there's an easier way to do this (because we're keeping track of incoming callers).
+			if (j === 0) {
+				roots.push(visited[i]);
+			}
+		}
+	}
+
+	return roots;
+}
+
+function propagateLastUpdateTime(root: CallGraphNode): Date {
+	if (root.outgoingCalls.length === 0) {
+		return root.lastUpdateTime;
+	}
+	let childMostRecentUpdateTime = root.outgoingCalls.reduce((prev, current) => {
+		return prev > current.lastUpdateTimeOfChildren ? prev : current.lastUpdateTimeOfChildren;
+	}, root.outgoingCalls[0].lastUpdateTimeOfChildren);
+
+	root.lastUpdateTimeOfChildren = childMostRecentUpdateTime;
+
+	return root.lastUpdateTimeOfChildren;
+}
+
+export function getRoots(functions: Array<CallGraphNode>): Array<CallGraphNode> {
+	if (functions.length === 0) {
+		return [];
+	}
+
+	let sortContext = new SortContext();
+	sortContext.start(functions);
+
+	let roots = sortContext.visitStack.toArrayNonEmpty().filter(node => node.incomingCalls.length === 0);
+	for (let r of roots) {
+		propagateLastUpdateTime(r);
+	}
+
+	// Descending order of lastUpdateTimeOfChildren, so implement greater than comparator.
+	roots.sort((a, b) => {
+		return b.lastUpdateTimeOfChildren.getTime() - a.lastUpdateTimeOfChildren.getTime();
+	});
+	return roots;
 }
