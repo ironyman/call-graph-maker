@@ -8,7 +8,7 @@ import {
 	clearTrackedFunctions,
 	showTrackedFunctions,
 	restoreTrackedFunctions,
-	deleteTrackedFunction, 
+	deleteTrackedFunction,
 	getCurrentFunction} from './functiontracker';
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
@@ -20,6 +20,11 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
 		return;
 	}
 
+	// Ignore selection changes when typing, e.g. typing a new function.
+	if (e.kind == vscode.TextEditorSelectionChangeKind.Keyboard) {
+		return;
+	}
+
 	if (editor.document.fileName.startsWith('extension-output') || e.textEditor.document.fileName.startsWith('extension-output')) {
 		// This extension will output something which will cause editor selection change in extension output view causing infinite loop.
 		return;
@@ -28,8 +33,6 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
 
     let symbol = await getCurrentFunction();
 	if (symbol) {
-		console.log(symbol);
-
 		vscode.commands.executeCommand('call-graph-maker.trackCurrentFunction');
 	}
 }
@@ -47,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'callGraphMakerView',
 		treeDataProvider
 	);
-	
+
 	vscode.window.registerTreeDataProvider(
 		'callGraphMakerViewPanel',
 		treeDataProvider
@@ -89,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
 		await clearTrackedFunctions(context);
 		treeDataProvider.refresh();
 	}));
-	
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.showTrackedFunctions', () => {
 		showTrackedFunctions();
 	}));
