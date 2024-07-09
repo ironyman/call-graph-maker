@@ -52,8 +52,9 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         super(node.displayName, collapsibleState);
         this.label = {
             label: node.displayName,
-            highlights: [
-            ]
+            highlights: node.highlight ? [
+                [0, node.displayName.length]
+            ] : []
         };
         // Expanded by default
         this.collapsibleState = collapsibleState;

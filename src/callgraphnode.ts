@@ -62,31 +62,33 @@ export class CallGraphNode {
 	// But in c and cpp, the name of the function is functionName(type1, type2)
 	// and the function is referenced at call site as functionName so we have to process the
 	// name to eliminate the parameters.
-	callSiteName: string; 
+	callSiteName: string;
 
 	_displayName?: string;
 
 	// Variables for Tarjan's SCC and topolgical sort finding algorithm
-	// Tarjan calls this NUMBER. It's the iteration number of depth first search when 
+	// Tarjan calls this NUMBER. It's the iteration number of depth first search when
 	// this node is visited. 0 means unvisited.
 	visitIndex: number;
 
 	// A little context, performing DFS on a directed graph and recording the nodes visited
-	// forms a palm forest. 
+	// forms a palm forest.
 	// LOWLINK is the lowest visitIndex of a node reachable from this node (including this node)
-	// via any number of forward edges followed by a back edge or a cross link edge and that node is 
+	// via any number of forward edges followed by a back edge or a cross link edge and that node is
 	// not part of a previously found SCC.
-	// The nodes with the same LOWLINK are in the same SCC. 
+	// The nodes with the same LOWLINK are in the same SCC.
 	lowlink: number;
 
 	// If this node is in an SCC, this list connects to other nodes of the same SCC.
 	componentList: SingleListEntry<CallGraphNode>;
 
 	lastUpdateTime: Date;
-	// Propagate lastUpdateTime from bottom of call hierchary from outgoingCalls direction
+	// Propagate lastUpdateTime from bottom of call hierarchy from outgoingCalls direction
 	// to root to calculate this. This is needed to sort and display the most recently viewed call hierarchy
 	// in tree view.
 	lastUpdateTimeOfChildren: Date;
+
+	highlight: boolean = false;
 
 	resetSortState() {
 		this.visitIndex = 0;
@@ -125,7 +127,7 @@ export class CallGraphNode {
             if (typeof opts.content !== 'undefined') {
 				this.content = opts.content;
 			}
-            
+
             if (typeof opts.callSiteName !== 'undefined') {
 				this.callSiteName = opts.callSiteName;
 			}
@@ -175,7 +177,7 @@ export class TarjanContext {
 		// 		"", vscode.SymbolKind.Boolean, "", new vscode.Location(vscode.Uri.parse("https://"), new vscode.Position(0, 0))
 		// 	)
 		// );
-		// Create a bottom so that when a visited node is pushed to visitStack, the node's componentList will 
+		// Create a bottom so that when a visited node is pushed to visitStack, the node's componentList will
 		// point to something (either visitStackBottom or another real node) so we know it's on the stack.
 
 		let visitStackBottom = new SingleListEntry<CallGraphNode>();
@@ -249,10 +251,10 @@ export class SortContext {
 		// this.visitStack.next = this.reverse(this.visitStack.next);
 	}
 
-	// a ->  b  -> c 
+	// a ->  b  -> c
 	// enter a
 	//   enter b
-	//     enter c 
+	//     enter c
 	//       return c
 	//     rest = c
 	//     head = b
@@ -274,7 +276,7 @@ export class SortContext {
 
 		head.next.next = head;
 
-		// This will be set in the parent call, when this call returns, unless if head is 
+		// This will be set in the parent call, when this call returns, unless if head is
 		// actual head of the list, in which case its next would be left as undefined.
 		head.next = undefined;
 
@@ -284,7 +286,7 @@ export class SortContext {
 	dfs(node: CallGraphNode) {
 		// Order doesn't matter.
 		node.visitIndex = 1;
-		
+
 		for (let neighbor of node.outgoingCalls) {
 			if (neighbor.visitIndex === 0) {
 				// Neighbor is unvisited, continue search.

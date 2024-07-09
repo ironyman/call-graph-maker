@@ -87,7 +87,14 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 		deleteTrackedFunction(context, existing);
 	}
 
+	// Highlight only the most recently added node.
+	for (let n of TRACKED_FUNCTIONS) {
+		n.highlight = false;
+	}
+	newNode.highlight = true;
+
 	TRACKED_FUNCTIONS.push(connectTrackedNodes(newNode));
+
 	saveTrackedFunctions(context);
 }
 
