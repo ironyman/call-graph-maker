@@ -20,6 +20,16 @@ function saveTrackedFunctions(context: vscode.ExtensionContext) {
 	// DbgChannel.appendLine(`Saved state ${serializable}.`);
 }
 
+function reversePropagateLastUpdateTime(newNode: CallGraphNode) {
+	for (let n of newNode.incomingCalls) {
+		if (n.lastUpdateTimeOfChildren < newNode.lastUpdateTimeOfChildren) {
+			console.log('updating ', n.displayName, newNode.lastUpdateTimeOfChildren);
+			n.lastUpdateTimeOfChildren = newNode.lastUpdateTimeOfChildren;
+		}
+		reversePropagateLastUpdateTime(n);
+	}
+}
+
 function connectTrackedNodes(newNode: CallGraphNode): CallGraphNode {
 	// https://stackoverflow.com/questions/7347203/circular-references-in-javascript-garbage-collector
 	// don't worry about cycles
@@ -34,7 +44,7 @@ function connectTrackedNodes(newNode: CallGraphNode): CallGraphNode {
 			n.incomingCalls.push(newNode);
 		}
 	}
-
+	reversePropagateLastUpdateTime(newNode);
 	return newNode;
 }
 
@@ -176,7 +186,6 @@ async function getFunctionAtPosition(
 	return null;
 }
 
-
 export async function getCurrentFunctionPath(): Promise<Array<vscode.SymbolInformation>> {
 	let activeTextEditor = vscode.window.activeTextEditor;
 	if (!activeTextEditor
@@ -281,11 +290,11 @@ function propagateLastUpdateTime(root: CallGraphNode): Date {
 		return root.lastUpdateTime;
 	}
 	let childMostRecentUpdateTime = root.outgoingCalls.reduce((prev, current) => {
+		propagateLastUpdateTime(current);
 		return prev > current.lastUpdateTimeOfChildren ? prev : current.lastUpdateTimeOfChildren;
 	}, root.outgoingCalls[0].lastUpdateTimeOfChildren);
 
 	root.lastUpdateTimeOfChildren = childMostRecentUpdateTime;
-
 	return root.lastUpdateTimeOfChildren;
 }
 
@@ -298,9 +307,11 @@ export function getRoots(functions: Array<CallGraphNode>): Array<CallGraphNode> 
 	sortContext.start(functions);
 
 	let roots = sortContext.visitStack.toArrayNonEmpty().filter(node => node.incomingCalls.length === 0);
-	for (let r of roots) {
-		propagateLastUpdateTime(r);
-	}
+
+	// Not sure why this is not setting the correct lastUpdateTimeOfChildren but we don't need to call it here.
+	// for (let r of roots) {
+	// 	propagateLastUpdateTime(r);
+	// }
 
 	// Descending order of lastUpdateTimeOfChildren, so implement greater than comparator.
 	roots.sort((a, b) => {

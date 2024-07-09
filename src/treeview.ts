@@ -19,8 +19,13 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
 
     getChildren(element?: CallGraphTreeItem): Thenable<CallGraphTreeItem[]> {
         if (element) {
+            let outgoingCalls = Array.from(element?.node.outgoingCalls);
+            // lastUpdateTimeOfChildren should have calculated in getRoots and connectTrackedNodes already.
+            outgoingCalls.sort((a, b) => {
+                return b.lastUpdateTimeOfChildren.getTime() - a.lastUpdateTimeOfChildren.getTime();
+            });
             return Promise.resolve(
-                element?.node.outgoingCalls.map(f => new CallGraphTreeItem(f,
+                outgoingCalls.map(f => new CallGraphTreeItem(f,
                     element!,
                     f.outgoingCalls.length > 0
                         ? vscode.TreeItemCollapsibleState.Expanded
@@ -43,11 +48,16 @@ export class CallGraphTreeItem extends vscode.TreeItem {
         public readonly treeItemParent: CallGraphTreeItem | null,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     ) {
-        let label = node.displayName;
-        super(label, vscode.TreeItemCollapsibleState.Expanded);
+
+        super(node.displayName, collapsibleState);
+        this.label = {
+            label: node.displayName,
+            highlights: [
+            ]
+        };
         // Expanded by default
-        this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-        this.tooltip = label;
+        this.collapsibleState = collapsibleState;
+        this.tooltip = node.displayName;
         // this.id = node.fn.location.uri + ":" + node.fn.location.range.start.line + ":" + label + treeItemParent?.node.callSiteName;
         // this.id = node.displayName;
         // Because multiple nodes could have the same children, the same child node could be displayed multiple times in tree view
