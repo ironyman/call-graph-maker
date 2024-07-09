@@ -20,8 +20,20 @@ function saveTrackedFunctions(context: vscode.ExtensionContext) {
 	// DbgChannel.appendLine(`Saved state ${serializable}.`);
 }
 
+function clearVisitIndex() {
+	for (let n of TRACKED_FUNCTIONS) {
+		n.visitIndex = 0;
+	}
+}
+
 function reversePropagateLastUpdateTime(newNode: CallGraphNode) {
 	for (let n of newNode.incomingCalls) {
+		if (n.visitIndex == 1) {
+			// Cycle detected, bail.
+			return;
+		}
+
+		n.visitIndex = 1;
 		if (n.lastUpdateTimeOfChildren < newNode.lastUpdateTimeOfChildren) {
 			console.log('updating ', n.displayName, newNode.lastUpdateTimeOfChildren);
 			n.lastUpdateTimeOfChildren = newNode.lastUpdateTimeOfChildren;
@@ -44,10 +56,17 @@ function connectTrackedNodes(newNode: CallGraphNode): CallGraphNode {
 			n.incomingCalls.push(newNode);
 		}
 	}
+
+	clearVisitIndex();
 	reversePropagateLastUpdateTime(newNode);
 	return newNode;
 }
 
+function clearHighlight() {
+	for (let n of TRACKED_FUNCTIONS) {
+		n.highlight = false;
+	}
+}
 
 export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	let fnPath = await getCurrentFunctionPath();
@@ -88,9 +107,7 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 	}
 
 	// Highlight only the most recently added node.
-	for (let n of TRACKED_FUNCTIONS) {
-		n.highlight = false;
-	}
+	clearHighlight();
 	newNode.highlight = true;
 
 	TRACKED_FUNCTIONS.push(connectTrackedNodes(newNode));
