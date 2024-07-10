@@ -12,6 +12,7 @@ import {
 	getCurrentFunction} from './functiontracker';
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
+import { initializeJumpHistory, notifyNavigation, updatePosition } from './jumphistory';
 
 async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelectionChangeEvent) {
     console.log("selection changed");
@@ -19,6 +20,8 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
     if (!editor) {
 		return;
 	}
+
+	notifyNavigation(e);
 
 	// Ignore selection changes when typing, e.g. typing a new function.
 	if (e.kind == vscode.TextEditorSelectionChangeKind.Keyboard) {
@@ -103,6 +106,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	vscode.window.onDidChangeTextEditorSelection(onDidChangeTextEditorSelectionListener);
 	DbgChannel.appendLine(`Call graph maker initialized using workspace ${context.extensionUri}, ${context.extensionPath}, ${context.storageUri}`);
+
+	initializeJumpHistory(context);
 }
 
 // this method is called when your extension is deactivated

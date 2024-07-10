@@ -86,7 +86,7 @@ export class CallGraphTreeItem extends vscode.TreeItem {
             command: "vscode.open",
             arguments: [
                 node.fn.location.uri,
-                <vscode.TextDocumentShowOptions>{ selection: target }
+                <vscode.TextDocumentShowOptions>{ selection: target, preserveFocus: false }
             ]
         };
 

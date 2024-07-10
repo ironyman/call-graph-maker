@@ -28,7 +28,11 @@
 			"explorer": [
 				{
 					"id": "callGraphMakerView",
-					"name": "Call Graph Maker View"
+					"name": "Call Graph"
+				},
+				{
+					"id": "jumpHistoryView",
+					"name": "Jump History"
 				}
 			],
 			"callGraphMakerPanel": [
