@@ -84,6 +84,16 @@
 				"command": "call-graph-maker.refreshCallGraphMakerView",
 				"title": "Refresh",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.pin",
+				"title": "Pin toggle",
+				"icon": "$(timeline-pin)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.unpin",
+				"title": "Unpin",
+				"icon": "$(close)"
 			}
 		],
 		"keybindings": [
@@ -118,6 +128,16 @@
 				{
 					"command": "call-graph-maker.deleteTrackedFunction",
 					"when": "view == callGraphMakerViewPanel && viewItem == CallGraphTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.pin",
+					"when": "view == jumpHistoryView && viewItem == JumpHistoryTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.unpin",
+					"when": "view == jumpHistoryView && viewItem == PinnedJumpHistoryTreeItem",
 					"group": "inline"
 				}
 			],
