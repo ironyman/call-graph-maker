@@ -93,6 +93,8 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 }
 
 export class JumpHistoryTreeItem extends vscode.TreeItem {
+	openCommand: vscode.Command;
+
 	constructor(
 		public file: vscode.Uri,
 		public position: vscode.Position,
@@ -108,6 +110,14 @@ export class JumpHistoryTreeItem extends vscode.TreeItem {
 		this.tooltip = excerpt;
 
 		this.command = <vscode.Command>{
+			title: "Open",
+			command: "call-graph-maker.jumpHistoryView.jumpNoChange",
+			arguments: [
+				this
+			]
+		};
+
+		this.openCommand = <vscode.Command>{
 			title: "Open",
 			command: "vscode.open",
 			arguments: [
@@ -159,7 +169,7 @@ export function initializeJumpHistory(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.jumpNoChange', async (item: JumpHistoryTreeItem) => {
 		jumpHistory.ignoreNextAddition = true;
-		vscode.commands.executeCommand(item.command!.command, ...item.command!.arguments!).then(() => {
+		vscode.commands.executeCommand(item.openCommand!.command, ...item.openCommand!.arguments!).then(() => {
 			// This races.
 			// jumpHistory.delete(0);
 		});
