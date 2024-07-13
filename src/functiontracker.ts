@@ -27,13 +27,13 @@ function clearVisitIndex() {
 }
 
 function reversePropagateLastUpdateTime(newNode: CallGraphNode) {
-	for (let n of newNode.incomingCalls) {
-		if (n.visitIndex == 1) {
-			// Cycle detected, bail.
-			return;
-		}
+	if (newNode.visitIndex == 1) {
+		// Cycle detected, bail.
+		return;
+	}
+	newNode.visitIndex = 1;
 
-		n.visitIndex = 1;
+	for (let n of newNode.incomingCalls) {
 		if (n.lastUpdateTimeOfChildren < newNode.lastUpdateTimeOfChildren) {
 			console.log('updating ', n.displayName, newNode.lastUpdateTimeOfChildren);
 			n.lastUpdateTimeOfChildren = newNode.lastUpdateTimeOfChildren;
@@ -85,6 +85,9 @@ export async function trackCurrentFunction(context: vscode.ExtensionContext) {
 			fnPath = fnPath.slice(0, -1);
 			fn = fnPath[fnPath.length - 1];
 			identifier = fn.name;
+		}
+		if (fn.name === 'constructor' && fnPath.length > 1) {
+			identifier = fnPath[fnPath.length - 2].name;
 		}
 	}
 

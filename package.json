@@ -94,6 +94,26 @@
 				"command": "call-graph-maker.jumpHistoryView.unpin",
 				"title": "Unpin",
 				"icon": "$(close)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.delete",
+				"title": "Delete",
+				"icon": "$(close)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.jumpNoChange",
+				"title": "Delete",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.showAll",
+				"title": "Show all",
+				"icon": "$(find-selection)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.clear",
+				"title": "Clear",
+				"icon": "$(extensions-clear-search-results)"
 			}
 		],
 		"keybindings": [
@@ -136,6 +156,16 @@
 					"group": "inline"
 				},
 				{
+					"command": "call-graph-maker.jumpHistoryView.delete",
+					"when": "view == jumpHistoryView && viewItem == JumpHistoryTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.jumpNoChange",
+					"when": "view == jumpHistoryView && viewItem == JumpHistoryTreeItem",
+					"group": "inline"
+				},
+				{
 					"command": "call-graph-maker.jumpHistoryView.unpin",
 					"when": "view == jumpHistoryView && viewItem == PinnedJumpHistoryTreeItem",
 					"group": "inline"
@@ -166,6 +196,16 @@
 					"command": "call-graph-maker.trackCurrentFunction",
 					"when": "view == callGraphMakerView || view == callGraphMakerViewPanel",
 					"group": "navigation@99"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.showAll",
+					"when": "view == jumpHistoryView",
+					"group": "navigation"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.clear",
+					"when": "view == jumpHistoryView",
+					"group": "navigation"
 				}
 			],
 			"editor/context": [

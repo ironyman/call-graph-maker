@@ -19,6 +19,15 @@ export class CallGraphTreeDataProvider implements vscode.TreeDataProvider<CallGr
 
     getChildren(element?: CallGraphTreeItem): Thenable<CallGraphTreeItem[]> {
         if (element) {
+            // Prevent cycles.
+            let ancestor = element.treeItemParent;
+            while (ancestor !== null) {
+                if (ancestor.node.isSameReferrent(element.node)) {
+                    return Promise.resolve([]);
+                }
+                ancestor = ancestor.treeItemParent;
+            }
+
             let outgoingCalls = Array.from(element?.node.outgoingCalls);
             // lastUpdateTimeOfChildren should have calculated in getRoots and connectTrackedNodes already.
             outgoingCalls.sort((a, b) => {

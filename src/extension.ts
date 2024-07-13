@@ -9,15 +9,16 @@ import {
 	showTrackedFunctions,
 	restoreTrackedFunctions,
 	deleteTrackedFunction,
-	getCurrentFunction} from './functiontracker';
+	getCurrentFunction
+} from './functiontracker';
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
 import { initializeJumpHistory, notifyNavigation, updatePosition } from './jumphistory';
 
 async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelectionChangeEvent) {
-    console.log("selection changed");
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
+	console.log("selection changed");
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) {
 		return;
 	}
 
@@ -34,7 +35,7 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
 	}
 	// console.log(editor.document.fileName);
 
-    let symbol = await getCurrentFunction();
+	let symbol = await getCurrentFunction();
 	if (symbol) {
 		vscode.commands.executeCommand('call-graph-maker.trackCurrentFunction');
 	}
