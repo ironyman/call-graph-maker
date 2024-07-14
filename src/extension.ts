@@ -14,6 +14,8 @@ import {
 import { gotoLocalDefinition } from './goto';
 import { CallGraphTreeDataProvider, CallGraphTreeItem } from './treeview';
 import { initializeJumpHistory, notifyNavigation, updatePosition } from './jumphistory';
+import path = require('path');
+import { CallGraphNode } from './callgraphnode';
 
 async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelectionChangeEvent) {
 	console.log("selection changed");
@@ -95,6 +97,33 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.clearTrackedFunctions', async () => {
 		await clearTrackedFunctions(context);
 		treeDataProvider.refresh();
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.listTrackedFunctions', async () => {
+		const functions = TRACKED_FUNCTIONS.map((f) => {
+			return {
+				label: f.displayName,
+				description: path.basename(f.fn.location.uri.path),
+				original: f,
+			} as vscode.QuickPickItem;
+		});
+		const pick = await vscode.window.showQuickPick(functions, {
+			title: 'Tracked functions',
+			matchOnDescription: true,
+			matchOnDetail: true
+		});
+
+		if (pick === undefined) {
+			return;
+		}
+		const node = ((pick as any).original as CallGraphNode);
+		const target = node.fn.location.range.with({ end: node.fn.location.range.start });
+
+		vscode.commands.executeCommand(
+			"vscode.open",
+			node.fn.location.uri,
+			<vscode.TextDocumentShowOptions>{ selection: target, preserveFocus: false },
+		);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.showTrackedFunctions', () => {

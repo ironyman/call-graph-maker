@@ -196,6 +196,28 @@ ${item.excerpt}
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.clear', async () => {
 		jumpHistory.clear();
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.pick', async () => {
+		const jumps = (jumpHistory.pinned as JumpHistoryTreeItem[]).concat(jumpHistory.jumps).map((jump) => {
+			return {
+				label: jump.label,
+				description: jump.description,
+				detail: jump.excerpt,
+				treeItem: jump,
+			} as vscode.QuickPickItem;
+		});
+		const pick = await vscode.window.showQuickPick(jumps, {
+			title: 'History',
+			matchOnDescription: true,
+			matchOnDetail: true
+		});
+		if (pick === undefined) {
+			return;
+		}
+		vscode.commands.executeCommand((
+			(<any>pick).treeItem as JumpHistoryTreeItem).command!.command,
+			...((<any>pick).treeItem as JumpHistoryTreeItem).command!.arguments!);
+	}));
 }
 
 export function updatePosition(event: vscode.TextEditorSelectionChangeEvent): void {
