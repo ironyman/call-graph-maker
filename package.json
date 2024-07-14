@@ -113,6 +113,11 @@
 			{
 				"command": "call-graph-maker.jumpHistoryView.pick",
 				"title": "Jump to recent history"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.archive",
+				"title": "Archive and persist in recent history",
+				"icon": "$(archive)"
 			}
 		],
 		"keybindings": [
@@ -150,6 +155,11 @@
 				},
 				{
 					"command": "call-graph-maker.jumpHistoryView.pin",
+					"when": "view == jumpHistoryView && viewItem == JumpHistoryTreeItem",
+					"group": "inline"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.archive",
 					"when": "view == jumpHistoryView && viewItem == JumpHistoryTreeItem",
 					"group": "inline"
 				},
