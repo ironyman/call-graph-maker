@@ -333,6 +333,7 @@ export function getRoots(functions: Array<CallGraphNode>): Array<CallGraphNode> 
 	let sortContext = new SortContext();
 	sortContext.start(functions);
 
+	// TODO: account for cycles, where incomingCalls could be length != 0?
 	let roots = sortContext.visitStack.toArrayNonEmpty().filter(node => node.incomingCalls.length === 0);
 
 	// Not sure why this is not setting the correct lastUpdateTimeOfChildren but we don't need to call it here.

@@ -7,6 +7,7 @@ let jumpHistory: JumpHistoryTreeDataProvider = undefined as any as JumpHistoryTr
 
 class FilePosition {
 	constructor(
+		public document: vscode.TextDocument,
 		public file: vscode.Uri,
 		public position: vscode.Position,
 	) {
@@ -55,8 +56,8 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 		return this.jumps[0];
 	}
 
-	setPosition(file: vscode.Uri, position: vscode.Position) {
-		this.currentPosition = new FilePosition(file, position);
+	setPosition(doc: vscode.TextDocument, file: vscode.Uri, position: vscode.Position) {
+		this.currentPosition = new FilePosition(doc, file, position);
 	}
 
 	// Toggle pin.
@@ -324,7 +325,7 @@ ${item.excerpt}
 }
 
 export function updatePosition(event: vscode.TextEditorSelectionChangeEvent): void {
-	jumpHistory.setPosition(event.textEditor.document.uri, event.selections[0].anchor);
+	jumpHistory.setPosition(event.textEditor.document, event.textEditor.document.uri, event.selections[0].anchor);
 }
 
 function clamp(num: number, min: number, max: number) {
@@ -346,29 +347,32 @@ export function notifyNavigation(event: vscode.TextEditorSelectionChangeEvent): 
 		}
 	}
 
-	updatePosition(event);
+	const prevPos = jumpHistory.currentPosition;
+	if (prevPos) {
+		const text = prevPos.document.getText();
 
-	const text = event.textEditor.document.getText();
-	const lineStart = new vscode.Position(event.selections[0].anchor.line, 0);
-	const lineStartOffset = event.textEditor.document.offsetAt(lineStart);
-	let lineEndOffset = text.indexOf('\n', lineStartOffset);
-	if (lineEndOffset === -1) {
-		lineEndOffset = text.length - 1;
-		if (lineEndOffset < 0) {
-			lineEndOffset = 0;
+		const lineStart = new vscode.Position(jumpHistory.currentPosition!.position.line, 0);
+		const lineStartOffset = prevPos.document.offsetAt(lineStart);
+		let lineEndOffset = text.indexOf('\n', lineStartOffset);
+		if (lineEndOffset === -1) {
+			lineEndOffset = text.length - 1;
+			if (lineEndOffset < 0) {
+				lineEndOffset = 0;
+			}
 		}
-	}
-	const lineText = text.slice(lineStartOffset, lineEndOffset).trim();
+		const lineText = text.slice(lineStartOffset, lineEndOffset).trim();
 
-	const EXCERPT_CONTEXT = 10;
-	const excerptLineStart = clamp(event.selections[0].anchor.line - EXCERPT_CONTEXT, 0, event.textEditor.document.lineCount - 1);
-	const excerptLineEnd = clamp(event.selections[0].anchor.line + EXCERPT_CONTEXT, 0, event.textEditor.document.lineCount - 1);
-	lineEndOffset = text.indexOf('\n', event.textEditor.document.offsetAt(new vscode.Position(excerptLineEnd, 0)));
-	if (lineEndOffset === -1) {
-		lineEndOffset = clamp(text.length - 1, 0, text.length);
-	}
-	const excerpt = text.slice(event.textEditor.document.offsetAt(new vscode.Position(excerptLineStart, 0)),
-		lineEndOffset);
+		const EXCERPT_CONTEXT = 10;
+		const excerptLineStart = clamp(prevPos.position.line - EXCERPT_CONTEXT, 0, prevPos.document.lineCount - 1);
+		const excerptLineEnd = clamp(prevPos.position.line + EXCERPT_CONTEXT, 0, prevPos.document.lineCount - 1);
+		lineEndOffset = text.indexOf('\n', prevPos.document.offsetAt(new vscode.Position(excerptLineEnd, 0)));
+		if (lineEndOffset === -1) {
+			lineEndOffset = clamp(text.length - 1, 0, text.length);
+		}
+		const excerpt = text.slice(prevPos.document.offsetAt(new vscode.Position(excerptLineStart, 0)),
+			lineEndOffset);
 
-	jumpHistory.add(new JumpHistoryTreeItem(event.textEditor.document.uri, event.selections[0].anchor, lineText, excerpt));
+		jumpHistory.add(new JumpHistoryTreeItem(prevPos.document.uri, prevPos.position, lineText, excerpt));
+	}
+	updatePosition(event);
 }
