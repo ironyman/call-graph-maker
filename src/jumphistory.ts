@@ -215,7 +215,7 @@ class JumpHistoryQuickPickItem implements vscode.QuickPickItem {
 	constructor(public treeItem: JumpHistoryTreeItem) {
 		this.label = treeItem.label as string,
 		this.description = treeItem.kind.toString(),
-		this.detail = treeItem.description as string;
+		this.detail = (treeItem.description as string) + treeItem.excerpt;
 		this.buttons = [
 			{
 				iconPath: new vscode.ThemeIcon("close")
