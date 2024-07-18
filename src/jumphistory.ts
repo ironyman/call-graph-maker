@@ -336,6 +336,10 @@ export function notifyNavigation(event: vscode.TextEditorSelectionChangeEvent): 
 	if (event.selections.length < 1) {
 		return;
 	}
+	if (event.textEditor.document.uri.toString().startsWith('search-editor:') ||
+		event.textEditor.document.uri.toString().startsWith('output:')) {
+		return;
+	}
 
 	if (jumpHistory.currentPosition !== undefined) {
 		const TEXT_EDITOR_SELECTION_THRESHOLD = 10
