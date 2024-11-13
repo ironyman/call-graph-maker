@@ -26,6 +26,11 @@ async function onDidChangeTextEditorSelectionListener(e: vscode.TextEditorSelect
 
 	notifyNavigation(e);
 
+	const autoCallGraph = vscode.workspace.getConfiguration().get<boolean>('call-graph-maker.automaticCallGraphHistory');
+	if (!autoCallGraph) {
+		return;
+	}
+
 	// Ignore selection changes when typing, e.g. typing a new function.
 	if (e.kind == vscode.TextEditorSelectionChangeKind.Keyboard) {
 		return;

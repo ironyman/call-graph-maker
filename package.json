@@ -106,6 +106,11 @@
 				"icon": "$(find-selection)"
 			},
 			{
+				"command": "call-graph-maker.jumpHistoryView.flatten",
+				"title": "Flatten",
+				"icon": "$(list-flat)"
+			},
+			{
 				"command": "call-graph-maker.jumpHistoryView.clear",
 				"title": "Clear",
 				"icon": "$(extensions-clear-search-results)"
@@ -211,6 +216,11 @@
 					"group": "navigation"
 				},
 				{
+					"command": "call-graph-maker.jumpHistoryView.flatten",
+					"when": "view == jumpHistoryView",
+					"group": "navigation"
+				},
+				{
 					"command": "call-graph-maker.jumpHistoryView.clear",
 					"when": "view == jumpHistoryView",
 					"group": "navigation"
@@ -239,6 +249,16 @@
 					"icon": "$(list-tree)"
 				}
 			]
+		},
+		"configuration": {
+			"Title": "Jump history",
+			"properties": {
+				"call-graph-maker.automaticCallGraphHistory": {
+					"type": "boolean",
+					"default": false,
+					"description": "Automatically create call graph history as user navigates code."
+				}
+			}
 		}
 	},
 	"scripts": {

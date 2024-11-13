@@ -14,12 +14,21 @@ class FilePosition {
 	}
 }
 
+function groupBy(xs: Array<any>, key: string | Function) {
+	return xs.reduce(function(rv, x) {
+		var v = key instanceof Function ? key(x) : x[key];
+		(rv[v] = rv[v] || []).push(x);
+		return rv;
+	}, {});
+}
+
 export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<JumpHistoryTreeItem> {
 	public jumps: Array<JumpHistoryTreeItem> = [];
 	public pinned: Array<PinnedJumpHistoryTreeItem> = [];
 	public currentPosition?: FilePosition;
 	private MAX_JUMP_HISTORY = 99;
 	public ignoreNextAddition = false;
+	public enableSymbolGrouping = true;
 
 	constructor(private context: vscode.ExtensionContext) {
 	}
@@ -31,8 +40,44 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 		return element;
 	}
 
+	getRootChildren(): Thenable<JumpHistoryTreeItem[]> {
+		if (!this.enableSymbolGrouping || this.jumps.length <= 1) {
+			return Promise.resolve((this.pinned as JumpHistoryTreeItem[]).concat(this.jumps));
+		}
+
+		let groupedJumps: JumpHistoryTreeItem[] = [];
+		let currentGroup: JumpHistoryTreeItemGroup | undefined;
+
+		for (let i = 1; i < this.jumps.length; ++i) {
+			if (this.jumps[i].label == this.jumps[i - 1].label) {
+				if (currentGroup == undefined) {
+					const first = this.jumps[i - 1];
+					currentGroup = new JumpHistoryTreeItemGroup(
+						first.file,
+						first.symbolPath,
+						first.position,
+						first.lineText,
+						first.excerpt, [first]);
+					groupedJumps.push(currentGroup);
+				}
+				currentGroup.children.push(this.jumps[i]);
+			} else if (currentGroup != undefined) {
+				currentGroup = undefined;
+			} else {
+				groupedJumps.push(this.jumps[i - 1]);
+				if (i == this.jumps.length - 1) {
+					groupedJumps.push(this.jumps[i]);
+				}
+			}
+		}
+		return Promise.resolve(groupedJumps);
+	}
+
 	getChildren(element?: JumpHistoryTreeItem): Thenable<JumpHistoryTreeItem[]> {
-		return Promise.resolve((this.pinned as JumpHistoryTreeItem[]).concat(this.jumps));
+		if (!element) {
+			return this.getRootChildren();
+		}
+		return Promise.resolve((element as JumpHistoryTreeItemGroup).children);
 	}
 
 	refresh(): void {
@@ -65,7 +110,7 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 		let alreadyPinnedIndex = this.pinned.findIndex((p) => p.originalUnpinnedId === item.id
 			|| (item as PinnedJumpHistoryTreeItem).originalUnpinnedId === p.originalUnpinnedId);
 		if (alreadyPinnedIndex === -1) {
-			this.pinned.push(new PinnedJumpHistoryTreeItem(item.file, item.position, item.lineText, item.excerpt, item.id!));
+			this.pinned.push(new PinnedJumpHistoryTreeItem(item.file, item.symbolPath, item.position, item.lineText, item.excerpt, item.id!));
 		} else {
 			this.pinned.splice(alreadyPinnedIndex, 1);
 		}
@@ -95,7 +140,7 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 		let alreadyArchivedIndex = archive.findIndex((p) => p.originalUnpinnedId === item.id
 			|| (item as PinnedJumpHistoryTreeItem).originalUnpinnedId === p.originalUnpinnedId);
 		if (alreadyArchivedIndex === -1) {
-			archive.push(new PinnedJumpHistoryTreeItem(item.file, item.position, item.lineText, item.excerpt, item.id!));
+			archive.push(new PinnedJumpHistoryTreeItem(item.file, item.symbolPath, item.position, item.lineText, item.excerpt, item.id!));
 		} else {
 			archive.splice(alreadyArchivedIndex, 1);
 		}
@@ -106,6 +151,7 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 		return this.context.globalState.get('call-graph-maker.jumpHistoryView.archivedJumps', []).map((item: any) => {
 			let j = new PinnedJumpHistoryTreeItem(
 				vscode.Uri.parse(item?.file),
+				item?.symbolPath,
 				new vscode.Position(item?.position?.line, item?.position?.character),
 				item?.lineText,
 				item?.excerpt,
@@ -150,17 +196,19 @@ export class JumpHistoryTreeItem extends vscode.TreeItem {
 
 	constructor(
 		public file: vscode.Uri,
+		public symbolPath: Array<vscode.SymbolInformation> | undefined,
 		public position: vscode.Position,
 		public lineText: string,
 		public excerpt: string
 	) {
 		const id = uuidv4();
 		super(id);
-		this.label = `${path.basename(file.path)}:${position.line + 1}:${position.character + 1}`;
+		this.label = symbolPath?.map(s => s.name).join(' > ') || lineText;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		this.id = id;
-		this.description = lineText;
-		this.tooltip = excerpt;
+		// this.description = lineText;
+		this.description = `${path.basename(file.path)}:${position.line + 1}:${position.character + 1}`;
+		this.tooltip = `${this.label}\n${this.description}\n${this.excerpt}`;
 
 		this.command = <vscode.Command>{
 			title: "Open",
@@ -185,17 +233,35 @@ export class JumpHistoryTreeItem extends vscode.TreeItem {
 	contextValue = 'JumpHistoryTreeItem';
 }
 
+export class JumpHistoryTreeItemGroup extends JumpHistoryTreeItem {
+	iconPath = new vscode.ThemeIcon("symbol-function");
+	contextValue = 'JumpHistoryTreeItemGroup';
+	collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+
+	constructor(
+		public file: vscode.Uri,
+		public symbolPath: Array<vscode.SymbolInformation> | undefined,
+		public position: vscode.Position,
+		public lineText: string,
+		public excerpt: string,
+		public children: Array<JumpHistoryTreeItem> = [],
+	) {
+		super(file, symbolPath, position, lineText, excerpt);
+	}
+}
+
 export class PinnedJumpHistoryTreeItem extends JumpHistoryTreeItem {
 	public kind = JumpHistoryTreeItemKind.pinned;
 
 	constructor(
 		public file: vscode.Uri,
+		public symbolPath: Array<vscode.SymbolInformation> | undefined,
 		public position: vscode.Position,
 		public lineText: string,
 		public excerpt: string,
 		public originalUnpinnedId: string,
 	) {
-		super(file, position, lineText, excerpt);
+		super(file, symbolPath, position, lineText, excerpt);
 	}
 
 	iconPath = new vscode.ThemeIcon("timeline-pin");
@@ -268,6 +334,11 @@ ${item.excerpt}
 		});
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.flatten', async () => {
+		jumpHistory.enableSymbolGrouping = !jumpHistory.enableSymbolGrouping;
+		jumpHistory.refresh();
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.clear', async () => {
 		jumpHistory.clear();
 	}));
@@ -332,7 +403,46 @@ function clamp(num: number, min: number, max: number) {
 	return Math.min(Math.max(num, min), max);
 }
 
-export function notifyNavigation(event: vscode.TextEditorSelectionChangeEvent): void {
+async function getSymbolPathAtPosition(
+	pos: FilePosition,
+	path?: Array<any>,
+	symbols?: Array<vscode.SymbolInformation>): Promise<Array<vscode.SymbolInformation> | null>
+{
+	if (symbols == null || symbols.length == 0) {
+		symbols = await vscode.commands.executeCommand(
+			'vscode.executeDocumentSymbolProvider', pos.document.uri);
+	}
+
+	if (!(Symbol.iterator in Object(symbols))) {
+		// if (symbols === undefined) {
+		// 	DbgChannel.appendLine(`Symbol provider not ready yet.`);
+		// } else {
+		// 	DbgChannel.appendLine(`getCurrentFunction vscode.executeDocumentSymbolProvider failed, ${symbols}`);
+		// }
+		return null;
+	}
+
+	if (!path) {
+		path = new Array();
+	}
+
+	for (let s of symbols!) {
+		if (!s.location.range.contains(pos.position)) {
+			continue;
+		}
+
+		path.push(s);
+
+		let children = (s as any).children;
+		if (children !== undefined && children.length > 0) {
+			return getSymbolPathAtPosition(pos, path, children);
+		}
+	}
+
+	return path;
+}
+
+export async function notifyNavigation(event: vscode.TextEditorSelectionChangeEvent): Promise<void> {
 	if (event.selections.length < 1) {
 		return;
 	}
@@ -376,7 +486,9 @@ export function notifyNavigation(event: vscode.TextEditorSelectionChangeEvent): 
 		const excerpt = text.slice(prevPos.document.offsetAt(new vscode.Position(excerptLineStart, 0)),
 			lineEndOffset);
 
-		jumpHistory.add(new JumpHistoryTreeItem(prevPos.document.uri, prevPos.position, lineText, excerpt));
+		const symbolPath = await getSymbolPathAtPosition(prevPos) || undefined;
+
+		jumpHistory.add(new JumpHistoryTreeItem(prevPos.document.uri, symbolPath, prevPos.position, lineText, excerpt));
 	}
 	updatePosition(event);
 }
