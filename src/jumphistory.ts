@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 
 // must initialize with initializeJumpHistory before use.
-let jumpHistory: JumpHistoryTreeDataProvider = undefined as any as JumpHistoryTreeDataProvider;
+let jumpHistory: JumpHistoryTreeDataProvider = undefined as any;
+let jumpTreeView: vscode.TreeView<JumpHistoryTreeItem> = undefined as any;
 
 class FilePosition {
 	constructor(
@@ -22,6 +23,41 @@ function groupBy(xs: Array<any>, key: string | Function) {
 	}, {});
 }
 
+function symbolPathEqual(
+	array1: Array<vscode.SymbolInformation> | null | undefined,
+	array2: Array<vscode.SymbolInformation> | null | undefined
+): boolean {
+	if (!array1 && array2 ||
+		array1 && !array2
+	) {
+		return false;
+	}
+
+	if (!array1 && array2) {
+		return true;
+	}
+
+	if (array1!.length != array2!.length) {
+		return false;
+	}
+
+	for (let i = 0; i < array1!.length; ++i) {
+		if (array1![i].name != array2![i].name) {
+			return false;
+		}
+
+		if (array1![i].location.uri.toString() != array2![i].location.uri.toString()) {
+			return false;
+		}
+
+		if (!array1![i].location.range.isEqual(array2![i].location.range)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<JumpHistoryTreeItem> {
 	public jumps: Array<JumpHistoryTreeItem> = [];
 	public pinned: Array<PinnedJumpHistoryTreeItem> = [];
@@ -29,6 +65,8 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 	private MAX_JUMP_HISTORY = 99;
 	public ignoreNextAddition = false;
 	public enableSymbolGrouping = true;
+	private cachedGroupedJumps: JumpHistoryTreeItem[] = [];
+	public cachedRootChildren: JumpHistoryTreeItem[] = [];
 
 	constructor(private context: vscode.ExtensionContext) {
 	}
@@ -42,7 +80,8 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 
 	getRootChildren(): Thenable<JumpHistoryTreeItem[]> {
 		if (!this.enableSymbolGrouping || this.jumps.length <= 1) {
-			return Promise.resolve((this.pinned as JumpHistoryTreeItem[]).concat(this.jumps));
+			this.cachedRootChildren = (this.pinned as JumpHistoryTreeItem[]).concat(this.jumps);
+			return Promise.resolve(this.cachedRootChildren);
 		}
 
 		let groupedJumps: JumpHistoryTreeItem[] = [];
@@ -70,7 +109,34 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 				}
 			}
 		}
-		return Promise.resolve(groupedJumps);
+
+		// Copy collapse state from previous grouped jumps.
+		let groupedJumpsOnly = groupedJumps.filter(x => x.kind == JumpHistoryTreeItemKind.Group);
+		let cachedGroupedJumpsOnly = this.cachedGroupedJumps.filter(x => x.kind == JumpHistoryTreeItemKind.Group);
+		let groupedJumpsIndex = groupedJumpsOnly.length - 1;
+		let cachedGroupedJumpsIndex = cachedGroupedJumpsOnly.length - 1;
+
+		while (cachedGroupedJumpsIndex >= 0 &&
+				!symbolPathEqual(groupedJumpsOnly[groupedJumpsIndex].symbolPath,
+				cachedGroupedJumpsOnly[cachedGroupedJumpsIndex].symbolPath))
+		{
+			--cachedGroupedJumpsIndex;
+		}
+
+		while (cachedGroupedJumpsIndex >= 0) {
+			// groupedJumpsOnly[groupedJumpsIndex].collapsibleState =
+			// cachedGroupedJumpsOnly[cachedGroupedJumpsIndex].collapsibleState;
+			// Collapsible state is tracked internal to vscode by id
+			groupedJumpsOnly[groupedJumpsIndex].id = cachedGroupedJumpsOnly[cachedGroupedJumpsIndex].id;
+			--cachedGroupedJumpsIndex;
+			--groupedJumpsIndex
+		}
+
+		this.cachedGroupedJumps = groupedJumps;
+		this.cachedRootChildren = (this.pinned as JumpHistoryTreeItem[]).concat(groupedJumps);
+		// Need to preserve id for reveal to work.
+		return Promise.resolve(this.cachedRootChildren);
+
 	}
 
 	getChildren(element?: JumpHistoryTreeItem): Thenable<JumpHistoryTreeItem[]> {
@@ -78,6 +144,20 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 			return this.getRootChildren();
 		}
 		return Promise.resolve((element as JumpHistoryTreeItemGroup).children);
+	}
+
+	getParent(element: JumpHistoryTreeItem): Thenable<JumpHistoryTreeItem> {
+		if (this.cachedRootChildren.find(x => x.id == element.id)) {
+			return Promise.resolve(undefined!);
+		}
+		let groups = this.cachedRootChildren.filter(
+			x => x.kind == JumpHistoryTreeItemKind.Group) as JumpHistoryTreeItemGroup[];
+		for (const g of groups) {
+			if (g.children.find(x => x.id == element.id)) {
+				return Promise.resolve(g);
+			}
+		}
+		return null!;
 	}
 
 	refresh(): void {
@@ -157,7 +237,7 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 				item?.excerpt,
 				item?.originalUnpinnedId
 			);
-			j.kind = JumpHistoryTreeItemKind.archived;
+			j.kind = JumpHistoryTreeItemKind.Archived;
 			return j;
 		});
 	}
@@ -185,14 +265,15 @@ export class JumpHistoryTreeDataProvider implements vscode.TreeDataProvider<Jump
 }
 
 enum JumpHistoryTreeItemKind {
-	volatile = 'Session',
-	pinned = 'Pinned',
-	archived = 'Archived',
+	Volatile = 'Session',
+	Pinned = 'Pinned',
+	Archived = 'Archived',
+	Group = 'Group',
 }
 
 export class JumpHistoryTreeItem extends vscode.TreeItem {
 	openCommand: vscode.Command;
-	public kind = JumpHistoryTreeItemKind.volatile;
+	public kind = JumpHistoryTreeItemKind.Volatile;
 
 	constructor(
 		public file: vscode.Uri,
@@ -235,6 +316,7 @@ export class JumpHistoryTreeItem extends vscode.TreeItem {
 
 export class JumpHistoryTreeItemGroup extends JumpHistoryTreeItem {
 	iconPath = new vscode.ThemeIcon("symbol-function");
+	public kind = JumpHistoryTreeItemKind.Group;
 	contextValue = 'JumpHistoryTreeItemGroup';
 	collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 
@@ -251,7 +333,7 @@ export class JumpHistoryTreeItemGroup extends JumpHistoryTreeItem {
 }
 
 export class PinnedJumpHistoryTreeItem extends JumpHistoryTreeItem {
-	public kind = JumpHistoryTreeItemKind.pinned;
+	public kind = JumpHistoryTreeItemKind.Pinned;
 
 	constructor(
 		public file: vscode.Uri,
@@ -290,12 +372,76 @@ class JumpHistoryQuickPickItem implements vscode.QuickPickItem {
 	}
 }
 
+async function showJumpHistoryPicker(grouped: boolean = true) {
+	let jumps;
+
+	if (grouped) {
+		jumps = (jumpHistory.pinned as JumpHistoryTreeItem[])
+			.concat(await jumpHistory.getRootChildren())
+			.concat(jumpHistory.getArchivedJumps())
+			.map((jump) => {
+				return new JumpHistoryQuickPickItem(jump);
+			});
+	} else {
+		jumps = (jumpHistory.pinned as JumpHistoryTreeItem[])
+			.concat(jumpHistory.jumps)
+			.concat(jumpHistory.getArchivedJumps())
+			.map((jump) => {
+				return new JumpHistoryQuickPickItem(jump);
+			});
+	}
+
+	let qp = vscode.window.createQuickPick();
+	qp.items = jumps;
+	qp.matchOnDescription = true;
+	qp.matchOnDetail = true;
+	qp.title = 'History';
+	qp.onDidAccept((e) => {
+		const pick = qp.activeItems[0];
+		if (pick === undefined) {
+			return;
+		}
+		vscode.commands.executeCommand((
+			(<any>pick).treeItem as JumpHistoryTreeItem).command!.command,
+			...((<any>pick).treeItem as JumpHistoryTreeItem).command!.arguments!);
+	});
+	qp.onDidTriggerItemButton(async (e) => {
+		if ((e.button.iconPath as vscode.ThemeIcon)?.id !== 'close') {
+			return;
+		}
+
+		let item = e.item as JumpHistoryQuickPickItem;
+		if (item.treeItem.kind === JumpHistoryTreeItemKind.Archived) {
+			await jumpHistory.archive(item.treeItem);
+		} else if (item.treeItem.kind === JumpHistoryTreeItemKind.Pinned) {
+			jumpHistory.pin(item.treeItem);
+		} else if (item.treeItem.kind === JumpHistoryTreeItemKind.Volatile) {
+			jumpHistory.delete(item.treeItem);
+		}
+		const jumps = (jumpHistory.pinned as JumpHistoryTreeItem[])
+			.concat(jumpHistory.jumps)
+			.concat(jumpHistory.getArchivedJumps())
+			.map((jump) => {
+			return new JumpHistoryQuickPickItem(jump);
+		});
+
+		qp.items = jumps;
+	});
+	qp.show();
+}
+
 export function initializeJumpHistory(context: vscode.ExtensionContext) {
 	jumpHistory = new JumpHistoryTreeDataProvider(context);
-	vscode.window.registerTreeDataProvider(
-		'jumpHistoryView',
-		jumpHistory
-	);
+	// vscode.window.registerTreeDataProvider(
+	// 	'jumpHistoryView',
+	// 	jumpHistory
+	// );
+
+	jumpTreeView = vscode.window.createTreeView('jumpHistoryView', {
+		treeDataProvider: jumpHistory,
+		showCollapseAll: true,
+	});
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.pin', async (item: JumpHistoryTreeItem) => {
 		jumpHistory.pin(item);
 	}));
@@ -339,54 +485,27 @@ ${item.excerpt}
 		jumpHistory.refresh();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.top', async () => {
+		const nodes = jumpHistory?.cachedRootChildren;
+		if (nodes && nodes.length > 0) {
+			await jumpTreeView.reveal(nodes[0], {
+				expand: true,
+				select: true,
+				focus: true,
+			});
+		}
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.clear', async () => {
 		jumpHistory.clear();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.pickGrouped', async () => {
+		showJumpHistoryPicker();
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.pick', async () => {
-		const jumps = (jumpHistory.pinned as JumpHistoryTreeItem[])
-			.concat(jumpHistory.jumps)
-			.concat(jumpHistory.getArchivedJumps())
-			.map((jump) => {
-			return new JumpHistoryQuickPickItem(jump);
-		});
-		let qp = vscode.window.createQuickPick();
-		qp.items = jumps;
-		qp.matchOnDescription = true;
-		qp.matchOnDetail = true;
-		qp.title = 'History';
-		qp.onDidAccept((e) => {
-			const pick = qp.activeItems[0];
-			if (pick === undefined) {
-				return;
-			}
-			vscode.commands.executeCommand((
-				(<any>pick).treeItem as JumpHistoryTreeItem).command!.command,
-				...((<any>pick).treeItem as JumpHistoryTreeItem).command!.arguments!);
-		});
-		qp.onDidTriggerItemButton(async (e) => {
-			if ((e.button.iconPath as vscode.ThemeIcon)?.id !== 'close') {
-				return;
-			}
-
-			let item = e.item as JumpHistoryQuickPickItem;
-			if (item.treeItem.kind === JumpHistoryTreeItemKind.archived) {
-				await jumpHistory.archive(item.treeItem);
-			} else if (item.treeItem.kind === JumpHistoryTreeItemKind.pinned) {
-				jumpHistory.pin(item.treeItem);
-			} else if (item.treeItem.kind === JumpHistoryTreeItemKind.volatile) {
-				jumpHistory.delete(item.treeItem);
-			}
-			const jumps = (jumpHistory.pinned as JumpHistoryTreeItem[])
-				.concat(jumpHistory.jumps)
-				.concat(jumpHistory.getArchivedJumps())
-				.map((jump) => {
-				return new JumpHistoryQuickPickItem(jump);
-			});
-
-			qp.items = jumps;
-		});
-		qp.show();
+		showJumpHistoryPicker(false);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('call-graph-maker.jumpHistoryView.archive', async (item: JumpHistoryTreeItem) => {

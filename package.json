@@ -111,9 +111,18 @@
 				"icon": "$(list-flat)"
 			},
 			{
+				"command": "call-graph-maker.jumpHistoryView.top",
+				"title": "Go to top",
+				"icon": "$(fold-up)"
+			},
+			{
 				"command": "call-graph-maker.jumpHistoryView.clear",
 				"title": "Clear",
 				"icon": "$(extensions-clear-search-results)"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.pickGrouped",
+				"title": "Jump to recent history grouped"
 			},
 			{
 				"command": "call-graph-maker.jumpHistoryView.pick",
@@ -132,8 +141,12 @@
 				"mac": "cmd+y t"
 			},
 			{
-				"command": "call-graph-maker.jumpHistoryView.pick",
+				"command": "call-graph-maker.jumpHistoryView.pickGrouped",
 				"key": "ctrl+; J"
+			},
+			{
+				"command": "call-graph-maker.jumpHistoryView.pick",
+				"key": "ctrl+; ctrl+J"
 			}
 		],
 		"menus": {
@@ -217,6 +230,11 @@
 				},
 				{
 					"command": "call-graph-maker.jumpHistoryView.flatten",
+					"when": "view == jumpHistoryView",
+					"group": "navigation"
+				},
+				{
+					"command": "call-graph-maker.jumpHistoryView.top",
 					"when": "view == jumpHistoryView",
 					"group": "navigation"
 				},
